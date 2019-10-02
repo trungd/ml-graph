@@ -1,0 +1,30 @@
+node2vec:
+  model:
+    name: src.models.node2vec.Node2Vec
+    dimensions: 128
+    walk_length: 80
+    num_walks: 10
+    window_size: 5
+    directed: false
+    p: 0.25
+    q: 0.25
+    max_degree: 3
+  train:
+    num_epochs: 5
+    num_workers: 4
+
+model:
+  name: src.models.node_classifier.NodeClassifier
+  dropout: 0.5
+  hidden_size: 16
+  clf_ratio: 0.1
+dataset:
+  name: src.datasets.blog_catalog.BlogCatalog
+  test_size: 0.5
+train:
+  optimizer:
+    name: sgd
+    lr: 1
+    weight_decay: 5e-4
+test:
+  metrics: [f1_macro, f1_micro]

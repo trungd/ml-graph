@@ -1,0 +1,9 @@
+model:
+  name: dlex.sklearn.models.svc.SVC
+dataset:
+  name: src.datasets.grakel.Grakel
+  dataset_name: REDDIT-MULTI-5K
+  graph_vector: wl-subtree
+  test_size: 0.2
+train:
+  num_epochs: 1

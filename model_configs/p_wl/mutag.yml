@@ -1,0 +1,7 @@
+model:
+  name: dlex.sklearn.models.svc.SVC
+  kernel: precomputed
+dataset:
+  name: src.datasets.mutag.MUTAG
+  graph_kernel: graphlet_sampling
+  test_size: 0.1

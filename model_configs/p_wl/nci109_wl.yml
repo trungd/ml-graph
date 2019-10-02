@@ -1,0 +1,7 @@
+model:
+  name: dlex.sklearn.models.svc.SVC
+dataset:
+  name: src.datasets.grakel.Grakel
+  dataset_name: NCI1
+  graph_vector: persistent-wl
+  test_size: 0.2

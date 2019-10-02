@@ -1,0 +1,16 @@
+model:
+  name: src.models.node2vec.Node2Vec
+  dimensions: 128
+  walk_length: 80
+  num_walks: 10
+  window_size: 5
+  directed: false
+  p: 1
+  q: 1
+dataset:
+  name: src.datasets.dummy.Dummy
+train:
+  num_epochs: 1
+  num_workers: 3
+test:
+  metrics: [f1_macro, f1_micro]
