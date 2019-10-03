@@ -2,17 +2,16 @@ import os
 
 import networkx as nx
 import numpy as np
-from sklearn.preprocessing import MultiLabelBinarizer
 import torch
-
 from dlex.configs import AttrDict
 from dlex.datasets.builder import DatasetBuilder
-from dlex.datasets.sklearn import SklearnDataset
 from dlex.datasets.torch import PytorchDataset
 from dlex.torch import Batch
 from dlex.torch.utils.ops_utils import maybe_cuda
-from ..utils.utils import get_adj_sparse_matrix
+
+from .base.sklearn import SingleGraphDataset
 from ..models.node2vec import Node2Vec
+from ..utils.utils import get_adj_sparse_matrix
 
 
 class BlogCatalog(DatasetBuilder):
@@ -36,7 +35,7 @@ class BlogCatalog(DatasetBuilder):
         return PytorchBlogCatalog(self, mode)
 
 
-class SklearnBlogCatalog(SklearnDataset):
+class SklearnBlogCatalog(SingleGraphDataset):
     def __init__(self, builder: BlogCatalog, mode):
         super().__init__(builder)
 
@@ -62,7 +61,7 @@ class SklearnBlogCatalog(SklearnDataset):
         for edge in G.edges:
             G[edge[0]][edge[1]]['weight'] = 1
 
-        self.graph = G
+        self._graph = G
         label_list = list(nx.get_node_attributes(G, "labels").values())
         label_list = [[label2idx[label] for label in ls] for ls in label_list]
 
@@ -71,6 +70,9 @@ class SklearnBlogCatalog(SklearnDataset):
 
         self.labels = labels
         self.node_labels = label_list
+
+    def get_networkx_graph(self):
+        return self._graph
 
     @property
     def num_classes(self):
@@ -107,8 +109,6 @@ class PytorchBlogCatalog(PytorchDataset):
         label_list = [[ls[0]] for ls in label_list]
         label_list = [[label2idx[label] for label in ls] + [-1] * (len(labels) - len(ls)) for ls in label_list]
 
-        # mlb = MultiLabelBinarizer(labels)
-        # Y = mlb.fit_transform(label_list)
         Y = torch.LongTensor(label_list)
         X = torch.LongTensor(list(range(len(G.nodes))))
 

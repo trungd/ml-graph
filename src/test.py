@@ -3,7 +3,8 @@ from typing import Dict, List, Tuple
 import networkx as nx
 from grakel import datasets
 
-from utils.kernels import weisfeiler_lehman_subtree_features
+from .utils.utils import get_networkx_graph
+from .utils.kernels import weisfeiler_lehman_subtree_features
 
 
 mutag = datasets.fetch_dataset("MUTAG", verbose=False)

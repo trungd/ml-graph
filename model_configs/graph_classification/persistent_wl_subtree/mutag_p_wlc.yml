@@ -1,3 +1,4 @@
+backend: sklearn
 model:
   name: dlex.sklearn.models.svc.SVC
 dataset:

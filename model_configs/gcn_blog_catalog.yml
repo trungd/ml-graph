@@ -1,3 +1,4 @@
+backend: sklearn
 model:
   name: src.models.gcn.GCN
 

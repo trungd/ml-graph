@@ -5,6 +5,7 @@ from sklearn.metrics import accuracy_score, f1_score
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.preprocessing import MultiLabelBinarizer
 
+from ..datasets.base.sklearn import SingleGraphDataset
 from .node2vec import Node2Vec
 
 
@@ -21,7 +22,7 @@ class TopKRanker(OneVsRestClassifier):
 
 
 class NodeClassifier(BaseEstimator):
-    def __init__(self, params, dataset):
+    def __init__(self, params, dataset: SingleGraphDataset):
         super().__init__()
         self.params = params
         self.dataset = dataset

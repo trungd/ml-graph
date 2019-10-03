@@ -1,3 +1,4 @@
+backend: sklearn
 node2vec:
   model:
     name: src.models.node2vec.Node2Vec
@@ -12,7 +13,6 @@ node2vec:
   train:
     num_epochs: 5
     num_workers: 4
-
 model:
   name: src.models.node_classifier.NodeClassifier
   dropout: 0.5

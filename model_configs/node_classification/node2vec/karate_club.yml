@@ -1,3 +1,4 @@
+backend: sklearn
 model:
   name: src.models.node2vec.Node2Vec
   dimensions: 128
@@ -8,9 +9,9 @@ model:
   p: 1
   q: 1
 dataset:
-  name: src.datasets.dummy.Dummy
+  name: src.datasets.karate_club.KarateClub
 train:
   num_epochs: 1
   num_workers: 3
 test:
-  metrics: [f1_macro, f1_micro]
+  metrics: []

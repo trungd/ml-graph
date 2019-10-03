@@ -8,7 +8,7 @@ from dlex.configs import AttrDict
 from dlex.datasets.builder import DatasetBuilder
 from dlex.datasets.sklearn import SklearnDataset
 from dlex.utils import logger
-from ..utils import get_networkx_graph
+from ..utils.utils import get_networkx_graph
 
 from ..utils.kernels.persistent_weisfeiler_lehman import weisfeiler_lehman_subtree_features, persistent_weisfeiler_lehman_features
 

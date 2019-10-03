@@ -5,11 +5,13 @@ import numpy as np
 from dlex.configs import AttrDict
 from dlex.sklearn.models.word2vec import Word2Vec
 from dlex.utils import logger
+
+from ..datasets.base.sklearn import SingleGraphDataset
 from ..utils.node2vec import Graph
 
 
 class Node2Vec(Word2Vec):
-    def __init__(self, params: AttrDict, dataset):
+    def __init__(self, params: AttrDict, dataset: SingleGraphDataset):
         super().__init__(params)
         self.params = params
         self.dataset = dataset
@@ -33,7 +35,7 @@ class Node2Vec(Word2Vec):
         cfg = self.params.model
         if not os.path.exists(self.output_path):
             logger.info("Calculate node embedding")
-            G = self.dataset.graph
+            G = self.dataset.get_networkx_graph()
             node2vec_graph = Graph(G, cfg.directed, cfg.p, cfg.q)
             logger.info("Preprocessing transition probabilities...")
             node2vec_graph.preprocess_transition_probs()
@@ -67,4 +69,5 @@ class Node2Vec(Word2Vec):
         if self.embeddings:
             return np.array([self.embeddings[node] for node in ls])
         else:
+            ls = list(map(str, ls))
             return super().transform(ls)

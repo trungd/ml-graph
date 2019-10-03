@@ -4,5 +4,5 @@ model:
   kernel: precomputed
 dataset:
   name: src.datasets.mutag.MUTAG
-  graph_kernel: graphlet_sampling
+  graph_kernel: shortest_path
   test_size: 0.1
