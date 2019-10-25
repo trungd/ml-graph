@@ -1,20 +1,13 @@
-from typing import Dict, List, Tuple
+import random
 
 import networkx as nx
 from grakel import datasets
-
-from .utils.utils import get_networkx_graph
-from .utils.kernels import weisfeiler_lehman_subtree_features
-
+from src.models.vertex_weight_persistent_feature import vertex_degree_persistent_diagrams
+from src.utils.utils import get_networkx_graph
 
 mutag = datasets.fetch_dataset("MUTAG", verbose=False)
 G, y = mutag.data, mutag.target
 G = [get_networkx_graph(g[1], g[0], g[2]) for g in G]
-
-
-
-
-
 
 g1 = nx.Graph()
 g1.add_nodes_from([
@@ -39,4 +32,8 @@ g2.add_edges_from([
     (1, 3)
 ])
 
-print(weisfeiler_lehman_subtree_features([g1], 2))
+g = G[10]
+for u, v in g.edges:
+    g.edges[u, v]['weight'] = random.random()
+
+print(vertex_degree_persistent_diagrams(g))

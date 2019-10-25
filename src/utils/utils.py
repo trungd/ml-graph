@@ -3,16 +3,16 @@ from typing import Dict, Tuple, List
 import numpy as np
 import networkx as nx
 import scipy.sparse as sp
-# import torch
+import torch
 
 
 def get_networkx_graph(
         node_labels: Dict[int, any],
         edges: List[Tuple[int, int]],
-        edge_labels: Dict[Tuple[int, int], any]):
+        edge_labels: Dict[Tuple[int, int], any] = None):
     g = nx.Graph()
     g.add_nodes_from(zip(node_labels.keys(), [dict(label=label) for label in node_labels.values()]))
-    if len(edges) == len(edge_labels):
+    if edge_labels is not None and len(edges) == len(edge_labels):
         g.add_edges_from([(edge[0], edge[1], dict(label=edge_labels[edge])) for edge in edges])
     else:
         g.add_edges_from(edges)

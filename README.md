@@ -11,6 +11,10 @@ Easy interface for prototyping and running graph-related machine learning experi
 
 - [node2vec](./model_configs/node_classification/node2vec) ([paper](https://cs.stanford.edu/~jure/pubs/node2vec-kdd16.pdf) - [code](https://github.com/aditya-grover/node2vec))
 
+## Others
+
+- [Deep Learning with Topological Signatures](./model_configs/graph_classification/reddit5k_pd_vertex_degree.yml) ([paper](http://papers.nips.cc/paper/6761-deep-learning-with-topological-signatures) - [code](https://github.com/c-hofer/nips2017))
+
 ## Run experiments
 
 This library [dlex](https://github.com/trungd/dlex) is required for running experiments.

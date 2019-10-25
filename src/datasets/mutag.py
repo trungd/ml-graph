@@ -55,8 +55,10 @@ class SklearnMUTAG(SklearnDataset):
                     dict(name="weisfeiler_lehman", niter=5),
                     dict(name="subtree_wl")
                 ], normalize=True)
+            elif graph_kernel == "rips":
+                pass
             else:
-                raise Exception("Graph kernel is not valid: %s" % graph_kernel)
+                raise ValueError("Graph kernel is not valid: %s" % graph_kernel)
 
             self.init_dataset(G, y)
             self.X_train = gk.fit_transform(self.X_train)
@@ -73,5 +75,5 @@ class SklearnMUTAG(SklearnDataset):
             elif graph_vector == "random":
                 X = np.random.rand(len(y), 100)
             else:
-                raise Exception("Graph vector is not valid: %s" % graph_vector)
+                raise ValueError("Graph vector is not valid: %s" % graph_vector)
             self.init_dataset(X, y)

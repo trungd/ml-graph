@@ -3,8 +3,8 @@ model:
   name: dlex.sklearn.models.svc.SVC
 dataset:
   name: src.datasets.grakel.Grakel
-  dataset_name: MUTAG
-  graph_vector: persistent-wl
+  dataset_name: NCI109
+  graph_vector: persistent-wlc
   test_size: 0.2
 train:
   cross_validation: 0.1

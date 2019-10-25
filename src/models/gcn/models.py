@@ -56,6 +56,7 @@ class GCN(BaseModel):
 
     def get_loss(self, batch, output):
         indices = batch.X.tolist()
+        print(output[indices])
         return self.criterion(output[indices], batch.Y)
 
     def infer(self, batch: Batch):

@@ -1,5 +1,9 @@
 logs/
 model_outputs/
+comptopo/
 .idea/
 
 *.pyc
+repos/
+*.ipynb_checkpoints
+*.ipynb

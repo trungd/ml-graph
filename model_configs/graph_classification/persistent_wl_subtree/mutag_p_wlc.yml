@@ -6,3 +6,5 @@ dataset:
   dataset_name: MUTAG
   graph_vector: persistent-wlc
   test_size: 0.2
+train:
+  cross_validation: 0.1

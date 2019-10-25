@@ -6,3 +6,5 @@ dataset:
   dataset_name: NCI109
   graph_vector: persistent-wl
   test_size: 0.2
+train:
+  cross_validation: 0.1

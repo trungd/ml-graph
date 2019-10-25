@@ -344,8 +344,7 @@ class PersistentWLSubtree(TransformerMixin, BaseEstimator):
 
                         x_cycle_persistence[source_label] += weight ** self.p
                         x_cycle_persistence[target_label] += weight ** self.p
-
-                    x += x_cycle_persistence
+                    x += x_cycle_persistence.tolist()
                 X.append(x)
 
             X_per_iteration.append(np.array(X))

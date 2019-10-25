@@ -6,7 +6,7 @@ import torch
 
 from dlex.configs import AttrDict
 from dlex.datasets.builder import DatasetBuilder
-from dlex.datasets.torch import PytorchDataset
+from dlex.datasets.torch import Dataset
 from dlex.torch import Batch
 from dlex.torch.utils.ops_utils import maybe_cuda
 from ..utils.utils import get_adj_sparse_matrix, normalize_sparse_matrix
@@ -38,7 +38,7 @@ class Cora(DatasetBuilder):
         return PytorchCora(self, mode)
 
 
-class PytorchCora(PytorchDataset):
+class PytorchCora(Dataset):
     def __init__(self, builder: DatasetBuilder, mode: str):
         super().__init__(builder, mode)
         self._load_data()
@@ -58,9 +58,11 @@ class PytorchCora(PytorchDataset):
             dtype=np.int32
         ).reshape(edges_unordered.shape)
 
-        adj = get_adj_sparse_matrix(
-            num_nodes=len(labels),
-            edges=edges)
+        adj = sp.coo_matrix(
+            (np.ones(len(edges)), (edges[:, 0], edges[:, 1])),
+            shape=(len(idx), len(idx)),
+            dtype=np.float32)
+        adj = get_adj_sparse_matrix(adj)
 
         features = normalize_sparse_matrix(features)
 

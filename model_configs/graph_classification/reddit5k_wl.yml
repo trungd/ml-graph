@@ -1,10 +1,13 @@
 backend: sklearn
 model:
   name: dlex.sklearn.models.svc.SVC
+  kernel: precomputed
 dataset:
   name: src.datasets.grakel.Grakel
   dataset_name: REDDIT-MULTI-5K
-  graph_vector: wl-subtree
-  test_size: 0.2
+  graph_kernel: graphlet_sampling
+  test_size: 0.1
 train:
-  num_epochs: 1
+  num_epochs: 10
+test:
+  metrics: [acc]
