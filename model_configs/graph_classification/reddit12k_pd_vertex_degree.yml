@@ -4,7 +4,7 @@ model:
   kernel: precomputed
 dataset:
   name: src.datasets.grakel.Grakel
-  dataset_name: REDDIT-MULTI-5K
+  dataset_name: REDDIT-MULTI-12K
   graph_kernel: bottleneck_distance
   graph_filtration: vertex_degree
   test_size: 0.1

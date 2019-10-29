@@ -1,4 +1,4 @@
-Easy interface for prototyping and running graph-related machine learning experiments
+Easy interface for prototyping and running graph-related machine learning experiments. The code uses scikit-learn or pytorch depending on each implementation.
 
 ## Graph kernels
 
@@ -21,7 +21,7 @@ This library [dlex](https://github.com/trungd/dlex) is required for running expe
 
 ```yaml
 pip install dlex
-python -m dlex.sklearn.train -c <path_to_yml_config>
+python -m dlex.train -c <path_to_yml_config>
 ```
 
 ## List of data sets

@@ -1,8 +1,13 @@
 import os
 import pickle
+from typing import List
 
+import numpy as np
 from dlex.datasets.sklearn import SklearnDataset
 from tqdm import tqdm
+
+from src.models.vertex_weight_persistent_feature import PersistentDiagrams
+from ...utils.persistent_diagram.vectors import persistence_image, persistence_landscape
 
 
 class SingleGraphDataset(SklearnDataset):
@@ -20,6 +25,33 @@ class SingleGraphDataset(SklearnDataset):
 class MultiGraphsDataset(SklearnDataset):
     def __init__(self, builder):
         super().__init__(builder)
+        self._input_size = None
+
+    def _get_persistent_diagrams(self, graph_filtration) -> List[List[PersistentDiagrams]]:
+        if graph_filtration == "vertex_degree":
+            file_name = os.path.join(self.builder.get_processed_data_dir(), "vertex_degree_diagrams.pkl")
+            if os.path.exists(file_name):
+                with open(file_name, "rb") as f:
+                    dgms = pickle.load(f)
+            else:
+                from ...models.vertex_weight_persistent_feature import vertex_degree_persistent_diagrams
+                graphs = self.get_networkx_graphs()
+                dgms = []
+                for graph in tqdm(graphs, desc="Extracting PDs"):
+                    dgms.append(vertex_degree_persistent_diagrams(graph))
+                with open(file_name, "wb") as f:
+                    pickle.dump(dgms, f)
+        dgms = [[
+            PersistentDiagrams(graph_dgm[0]),
+            PersistentDiagrams(graph_dgm[1])
+        ] for graph_dgm in dgms]
+
+        for graph_dgm in dgms:
+            for d in graph_dgm:
+                d.normalize()
+                d.threshold()
+
+        return dgms
 
     def extract_features(self):
         params = self.params
@@ -53,19 +85,7 @@ class MultiGraphsDataset(SklearnDataset):
                 self.X_train = gk.fit_transform(self.X_train)
                 self.X_test = gk.transform(self.X_test)
             elif graph_kernel == "bottleneck_distance":
-                if graph_filtration == "vertex_degree":
-                    file_name = os.path.join(self.builder.get_processed_data_dir(), "vertex_degree_diagrams.pkl")
-                    if os.path.exists(file_name):
-                        with open(file_name, "rb") as f:
-                            dgms = pickle.load(f)
-                    else:
-                        from ...models.vertex_weight_persistent_feature import vertex_degree_persistent_diagrams
-                        graphs = self.get_networkx_graphs()
-                        dgms = []
-                        for graph in tqdm(graphs, desc="Extracting PDs"):
-                            dgms.append(vertex_degree_persistent_diagrams(graph))
-                        with open(file_name, "wb") as f:
-                            pickle.dump(dgms, f)
+                dgms = self._get_persistent_diagrams(graph_filtration)
                 self.init_dataset(dgms, self.y)
             else:
                 raise Exception("Graph kernel is not valid: %s" % graph_kernel)
@@ -91,11 +111,25 @@ class MultiGraphsDataset(SklearnDataset):
                     use_cycle_persistence=True,
                     num_iterations=params.dataset.h)
                 X, _ = feature_extractor.fit_transform(graphs)
+            elif graph_vector == "persistence_image":
+                dgms = self._get_persistent_diagrams(graph_filtration)
+                X = persistence_image([
+                    d[0].not_essential_points + d[0].essential_points for d in dgms])
+                self._input_size = 400
+            elif graph_vector == "persistence_landscape":
+                dgms = self._get_persistent_diagrams(graph_filtration)
+                X = persistence_landscape([
+                    d[0].not_essential_points + d[0].essential_points for d in dgms])
+                self._input_size = 500
             else:
                 raise Exception("Graph vector is not valid: %s" % graph_vector)
             self.init_dataset(X, self.y)
         else:
             self.init_dataset(self.get_networkx_graphs(), self.y)
 
+    @property
+    def input_size(self):
+        return self._input_size
+
     def get_networkx_graphs(self):
-        raise NotImplementedError()
+        raise NotImplementedError

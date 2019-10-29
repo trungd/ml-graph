@@ -1,12 +1,11 @@
-import functools
+from typing import List
 
 import networkx as nx
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from dlex.torch import Batch
-from dlex.torch.models import BaseModel, ClassificationModel
+from dlex.torch.models import ClassificationModel
+from dlex.torch.utils.ops_utils import maybe_cuda
 from torch import Tensor
 from torch.autograd import Variable
 from torch.nn.modules.module import Module
@@ -16,7 +15,6 @@ from torch.nn.parameter import Parameter
 def safe_tensor_size(tensor, dim):
     try:
         return tensor.size(dim)
-
     except Exception:
         return 0
 
@@ -57,29 +55,8 @@ class SLayer(Module):
         if sharpness_init is None:
             sharpness_init = torch.ones(self.n_elements, self.point_dimension)*3
 
-        self.centers = Parameter(centers_init)
-        self.sharpness = Parameter(sharpness_init)
-
-    @staticmethod
-    def is_prepared_batch(input):
-        if not (isinstance(input, tuple) and len(input) == 4):
-            return False
-        else:
-            batch, not_dummy_points, max_points, batch_size = input
-            return isinstance(batch, torch.FloatTensor) and \
-                   isinstance(not_dummy_points, torch.FloatTensor) and \
-                   max_points > 0 and batch_size > 0
-
-    @staticmethod
-    def is_list_of_tensors(input):
-        try:
-            return all([isinstance(x, torch.FloatTensor) for x in input])
-        except TypeError:
-            return False
-
-    @property
-    def is_gpu(self):
-        return self.centers.is_cuda
+        self.centers = maybe_cuda(Parameter(centers_init))
+        self.sharpness = maybe_cuda(Parameter(sharpness_init))
 
     def forward(self, diagrams, masks) -> Variable:
         batch_size, max_points = diagrams.shape[0], diagrams.shape[1]
@@ -195,66 +172,48 @@ class ToplexException(Exception):
     pass
 
 
-def norm_dgm(dgm):
-    if len(dgm) == 0:
-        return np.array([]), np.array([])
-
-    not_essential_points = [p for p in dgm if p[1] != float('inf')]
-    essential_points = [p for p in dgm if p[1] == float('inf')]
-
-    mi = min([p[0] for p in dgm])
-
-    ma = None
-    if len(not_essential_points) != 0:
-        ma = max([p[1] for p in not_essential_points])
-    else:
-        ma = max([p[0] for p in dgm])
-
-    norm_fact = 1
-    if ma != mi:
-        norm_fact = ma - mi
-
-    not_essential_points = [[(p[0] - mi) / norm_fact, (p[1] - mi) / norm_fact] for p in not_essential_points]
-    essential_points = [[(p[0] - mi) / norm_fact, 1] for p in essential_points]
-    return not_essential_points, essential_points
-
-
-def threshold_dgm(dgm, t):
-    return list(p for p in dgm if p[1]-p[0] > t)
-
-
-class VertexFiltrationBase:
-    def __init__(self, reddit_graph):
-        self._graph = reddit_graph
-
-    def __call__(self, simplex):
-        if type(simplex) == int:
-            return self._filtration(simplex)
+class PersistentDiagrams:
+    def __init__(self, values: list = None):
+        if values is None:
+            self.pd = []
         else:
-            return max([self._filtration(v) for v in simplex])
+            self.pd = values
 
-    @functools.lru_cache(maxsize=None)
-    def _filtration(self, vertex):
-        return self._filtration_implementation(vertex)
+        self.essential_points = [p for p in self.pd if p[1] == float('inf')]
+        self.not_essential_points = [p for p in self.pd if p[1] != float('inf')]
 
-    def _filtration_implementation(self, vertex):
-        pass
+    def __getitem__(self, item):
+        return self.pd[item]
+
+    def __len__(self):
+        return len(self.pd)
+
+    def normalize(self):
+        if len(self.pd) == 0:
+            return np.array([]), np.array([])
+
+        min_birth = min([p[0] for p in self.pd])
+        max_death = max([
+            p[1] for p in self.not_essential_points]) if len(self.not_essential_points) != 0 \
+            else max([p[0] for p in self.pd])
+
+        norm_fact = max_death - min_birth or 1
+
+        self.not_essential_points = [[
+            (p[0] - min_birth) / norm_fact,
+            (p[1] - min_birth) / norm_fact
+        ] for p in self.not_essential_points]
+
+        self.essential_points = [[(p[0] - min_birth) / norm_fact, 1] for p in self.essential_points]
+
+    def threshold(self, t: float = 0.01):
+        self.essential_points = list(p for p in self.essential_points if p[1] - p[0] > t)
+        self.not_essential_points = list(p for p in self.not_essential_points if p[1] - p[0] > t)
 
 
-class DegreeVertexFiltration(VertexFiltrationBase):
-    def _filtration_implementation(self, vertex):
-        return self._graph.degree[vertex]
-    
-    
-def vertex_degree_persistent_diagrams(graph: nx.Graph):
-    for n in graph.nodes:
-        graph.nodes[n]['weight'] = graph.degree[n]
-    return vertex_weight_persistent_diagrams(graph)
-
-
-def vertex_weight_persistent_diagrams(graph: nx.Graph):
+def vertex_weight_persistent_diagrams(
+        graph: nx.Graph) -> List[List[int]]:
     from dionysus import Simplex, Filtration, homology_persistence, init_diagrams
-    views = {}
 
     simplices = [(v,) for v in graph.nodes] + list(graph.edges)
 
@@ -267,113 +226,86 @@ def vertex_weight_persistent_diagrams(graph: nx.Graph):
     f = Filtration([Simplex(s, f) for s, f in zip(simplices, f_values)])
     m = homology_persistence(f)
     dgms = init_diagrams(m, f)
-
-    dgm_0, dgm_0_essential = norm_dgm([(p.birth, p.death) for p in dgms[0]])
-    dgm_1, dgm_1_essential = norm_dgm([(p.birth, p.death) for p in dgms[1]])
-
-    dgm_0, dgm_0_essential = threshold_dgm(dgm_0, 0.01), threshold_dgm(dgm_0_essential, 0.01)
-    dgm_1, dgm_1_essential = threshold_dgm(dgm_1, 0.01), threshold_dgm(dgm_1_essential, 0.01)
-
-    dgm_0, dgm_0_essential = np.array(dgm_0), np.array(dgm_0_essential)
-    dgm_1, dgm_1_essential = np.array(dgm_1), np.array(dgm_1_essential)
-
-    views['dim_0'] = dgm_0
-    views['dim_0_essential'] = dgm_0_essential
-    views['dim_1'] = dgm_1
-    views['dim_1_essential'] = dgm_1_essential
-
-    return views
+    dgms = [[[p.birth, p.death] for p in d] for d in dgms]
+    return dgms
 
 
-class UpperDiagonalThresholdedLogTransform:
-    def __init__(self, nu):
-        self.b_1 = (torch.Tensor([1, 1]) / np.sqrt(2))
-        self.b_2 = (torch.Tensor([-1, 1]) / np.sqrt(2))
-        self.nu = nu
-
-    def __call__(self, dgm: torch.FloatTensor):
-        if dgm.dim != 2:
-            return dgm
-
-        if dgm.is_cuda:
-            self.b_1 = self.b_1.cuda()
-            self.b_2 = self.b_2.cuda()
-
-        x = torch.mul(dgm, self.b_1.repeat(dgm.size(0), 1))
-        x = torch.sum(x, 1)
-        y = torch.mul(dgm, self.b_2.repeat(dgm.size(0), 1))
-        y = torch.sum(y, 1)
-        i = (y <= self.nu)
-        y[i] = torch.log(y[i] / self.nu) + self.nu
-        ret = torch.stack([x, y], 1)
-        return ret
-
-
-def pers_dgm_center_init(n_elements):
-    centers = []
-    while len(centers) < n_elements:
-        x = np.random.rand(2)
-        if x[1] > x[0]:
-            centers.append(x.tolist())
-    return torch.Tensor(centers)
-
-
-def reduce_essential_dgm(dgm):
-    if dgm.dim != 2:
-        return dgm
-    else:
-        return dgm[:, 0]
+def vertex_degree_persistent_diagrams(graph: nx.Graph):
+    for n in graph.nodes:
+        graph.nodes[n]['weight'] = graph.degree[n]
+    return vertex_weight_persistent_diagrams(graph)
 
 
 class Model(ClassificationModel):
     def __init__(self, params, dataset):
         super().__init__(params, dataset)
-        self.transform = UpperDiagonalThresholdedLogTransform(0.1)
+        self.b_1 = maybe_cuda(torch.Tensor([1, 1]) / np.sqrt(2))
+        self.b_2 = maybe_cuda(torch.Tensor([-1, 1]) / np.sqrt(2))
 
-        def get_init(n_elements):
-            transform = UpperDiagonalThresholdedLogTransform(0.1)
-            return transform(pers_dgm_center_init(n_elements))
+        def pers_dgm_center_init(n_elements):
+            centers = []
+            while len(centers) < n_elements:
+                x = np.random.rand(2)
+                if x[1] > x[0]:
+                    centers.append(x.tolist())
+            return torch.FloatTensor(centers)
 
-        self.dim_0 = SLayer(150, 2, get_init(150), torch.ones(150, 2) * 3)
-        self.dim_0_ess = SLayer(50, 1)
-        self.dim_1_ess = SLayer(50, 1)
-        self.slayers = [self.dim_0, self.dim_0_ess, self.dim_1_ess]
+        centers_init = self._upper_diagonal_transform(pers_dgm_center_init(150))
+        self.slayers = [
+            SLayer(150, 2, centers_init, torch.ones(150, 2) * 3),  # dim 0
+            SLayer(50, 1),  # dim 0 essential
+            SLayer(50, 1)  # dim 1 essential
+        ]
 
-        self.stage_1 = []
+        self.stage_1 = nn.ModuleList()
+        stage_1_ins = [150, 50, 50]
+        # stage_1_ins = [150]
         stage_1_outs = [75, 25, 25]
+        # stage_1_outs = [75]
 
-        for i, (n_in, n_out) in enumerate(zip([150, 50, 50], stage_1_outs)):
-            seq = nn.Sequential()
-            seq.add_module('linear_1', nn.Linear(n_in, n_out))
-            seq.add_module('batch_norm', nn.BatchNorm1d(n_out))
-            seq.add_module('drop_out_1', nn.Dropout(0.1))
-            seq.add_module('linear_2', nn.Linear(n_out, n_out))
-            seq.add_module('relu', nn.ReLU())
-            seq.add_module('drop_out_2', nn.Dropout(0.1))
+        for i, (n_in, n_out) in enumerate(zip(stage_1_ins, stage_1_outs)):
+            self.stage_1.append(nn.Sequential(
+                nn.Linear(n_in, n_out),
+                nn.BatchNorm1d(n_out),
+                nn.Dropout(0.1),
+                nn.Linear(n_out, n_out),
+                nn.ReLU(),
+                nn.Dropout(0.1)
+            ))
 
-            self.stage_1.append(seq)
-            self.add_module('stage_1_{}'.format(i), seq)
+        self.linear = nn.Sequential(
+            nn.Linear(sum(stage_1_outs), 200),
+            torch.nn.BatchNorm1d(200), nn.ReLU(),
+            nn.Linear(200, 100),
+            torch.nn.BatchNorm1d(100), torch.nn.Dropout(0.1), nn.ReLU(),
+            nn.Linear(100, 50),
+            nn.BatchNorm1d(50), nn.ReLU(),
+            nn.Linear(50, dataset.num_classes),
+            nn.BatchNorm1d(dataset.num_classes)
+        )
 
-        linear_1 = nn.Sequential()
-        linear_1.add_module('linear_1', nn.Linear(sum(stage_1_outs), 200))
-        linear_1.add_module('batchnorm_1', torch.nn.BatchNorm1d(200))
-        linear_1.add_module('relu_1', nn.ReLU())
-        linear_1.add_module('linear_2', nn.Linear(200, 100))
-        linear_1.add_module('batchnorm_2', torch.nn.BatchNorm1d(100))
-        linear_1.add_module('drop_out_2', torch.nn.Dropout(0.1))
-        linear_1.add_module('relu_2', nn.ReLU())
-        linear_1.add_module('linear_3', nn.Linear(100, 50))
-        linear_1.add_module('batchnorm_3', nn.BatchNorm1d(50))
-        linear_1.add_module('relu_3', nn.ReLU())
-        linear_1.add_module('linear_4', nn.Linear(50, dataset.num_classes))
-        linear_1.add_module('batchnorm_4', nn.BatchNorm1d(dataset.num_classes))
-        self.linear_1 = linear_1
+    def _upper_diagonal_transform(self, dgm: torch.FloatTensor, nu=0.1):
+        if dgm.dim != 2:
+            return dgm
+
+        x = torch.mul(dgm, self.b_1.repeat(dgm.size(0), 1))
+        x = torch.sum(x, 1)
+        y = torch.mul(dgm, self.b_2.repeat(dgm.size(0), 1))
+        y = torch.sum(y, 1)
+        i = (y <= nu)
+        y[i] = torch.log(y[i] / nu) + nu
+        ret = torch.stack([x, y], 1)
+        return ret
+
+    @staticmethod
+    def _reduce_essential_dgm(dgm):
+        return dgm if dgm.dim != 2 else dgm[:, 0]
 
     def forward(self, batch):
         x = [
-            self.transform(batch.X[0].data),
-            reduce_essential_dgm(batch.X[1].data), 
-            reduce_essential_dgm(batch.X[2].data)
+            self._upper_diagonal_transform(batch.X[0].data),
+            self._reduce_essential_dgm(batch.X[1].data),
+            self._reduce_essential_dgm(batch.X[2].data)
         ]
 
         x_sl = []
@@ -382,5 +314,5 @@ class Model(ClassificationModel):
 
         x = [l(xx) for l, xx in zip(self.stage_1, x_sl)]
         x = torch.cat(x, 1)
-        x = self.linear_1(x)
+        x = self.linear(x)
         return x
