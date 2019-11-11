@@ -14,6 +14,7 @@ Easy interface for prototyping and running graph-related machine learning experi
 ## Others
 
 - [Deep Learning with Topological Signatures](./model_configs/graph_classification/reddit5k_pd_vertex_degree.yml) ([paper](http://papers.nips.cc/paper/6761-deep-learning-with-topological-signatures) - [code](https://github.com/c-hofer/nips2017))
+- [PersLay]() - ([paper]() - [code](https://github.com/MathieuCarriere/perslay))
 
 ## Run experiments
 
@@ -34,3 +35,17 @@ python -m dlex.train -c <path_to_yml_config>
 ### Multiple graphs
 
 - [Many benchmark data sets for graph kernels](https://ls11-www.cs.tu-dortmund.de/staff/morris/graphkerneldatasets) (KKMMN2016 - loaded by [grakel](https://ysig.github.io/GraKeL/dev/generated/grakel.datasets.fetch_dataset.html#grakel.datasets.fetch_dataset))
+
+## Results
+
+### Graph Classification
+
+Results may not be comparable to original papers (due to different settings)
+
+| Model | MUTAG | NCI109 | REDDIT-5K | REDDIT-12K | COLLAB |
+|-------|-------|--------|-----------|------------|--------|
+|PWL (H0) [Rieck, 2019] | 82.46 | 81.66 |  
+|PWLC (H0 + H1) [Rieck, 2019] | 83.54 | 82.46 | 
+|DLTopo (H0 non-essential pairs) [Hofer, 2017] | | | 43.0 |
+|DLTopo (H0 + H1) [Hofer, 2017] | | | 54.4 | 46.4 |
+|Perslay [Carriere, 2019] | | | |

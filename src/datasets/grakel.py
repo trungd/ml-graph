@@ -91,8 +91,8 @@ class PytorchGrakelDataset(Dataset):
 
     @property
     def input_shape(self):
-        # return None
-        return [self.sklearn_dataset.input_size]
+        return None
+        # return [self.sklearn_dataset.input_size]
 
     def collate_fn(self, batch):
         if self.input_shape is not None:

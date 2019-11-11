@@ -1,0 +1,13 @@
+backend: sklearn
+model:
+  name: dlex.sklearn.models.svc.SVC
+dataset:
+  name: src.datasets.grakel.Grakel
+  dataset_name: REDDIT-MULTI-5K
+  graph_vector: persistence_landscape
+  graph_filtration: vertex_degree
+  test_size: 0.1
+train:
+  cross_validation: false
+test:
+  metrics: [acc]

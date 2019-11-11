@@ -4,9 +4,10 @@ from typing import List
 
 import numpy as np
 from dlex.datasets.sklearn import SklearnDataset
+from dlex.utils import logger
 from tqdm import tqdm
 
-from src.models.vertex_weight_persistent_feature import PersistentDiagrams
+from src.models.vertex_weight_persistent_feature import PersistenceDiagrams
 from ...utils.persistent_diagram.vectors import persistence_image, persistence_landscape
 
 
@@ -27,24 +28,39 @@ class MultiGraphsDataset(SklearnDataset):
         super().__init__(builder)
         self._input_size = None
 
-    def _get_persistent_diagrams(self, graph_filtration) -> List[List[PersistentDiagrams]]:
-        if graph_filtration == "vertex_degree":
-            file_name = os.path.join(self.builder.get_processed_data_dir(), "vertex_degree_diagrams.pkl")
-            if os.path.exists(file_name):
-                with open(file_name, "rb") as f:
-                    dgms = pickle.load(f)
-            else:
-                from ...models.vertex_weight_persistent_feature import vertex_degree_persistent_diagrams
+    @property
+    def feature_name(self):
+        return "%s_diagrams" % (
+            self.params.dataset.graph_filtration
+        )
+
+    def _get_persistent_diagrams(self) -> List[List[PersistenceDiagrams]]:
+        graph_filtration = self.params.dataset.graph_filtration
+        file_name = os.path.join(self.builder.get_processed_data_dir(), "%s.pkl" % self.feature_name)
+        if os.path.exists(file_name):
+            with open(file_name, "rb") as f:
+                dgms = pickle.load(f)
+            dgms = [PersistenceDiagrams.from_list(d) for d in dgms]
+            logger.info("Features loaded from %s" % file_name)
+        else:
+            if graph_filtration == "vertex_degree":
+                from ...models.vertex_weight_persistent_feature import VertexBasedPersistenceDiagramsCalculator
+                from ...utils.graph_signatures import vertex_degree_signatures
                 graphs = self.get_networkx_graphs()
                 dgms = []
-                for graph in tqdm(graphs, desc="Extracting PDs"):
-                    dgms.append(vertex_degree_persistent_diagrams(graph))
-                with open(file_name, "wb") as f:
-                    pickle.dump(dgms, f)
-        dgms = [[
-            PersistentDiagrams(graph_dgm[0]),
-            PersistentDiagrams(graph_dgm[1])
-        ] for graph_dgm in dgms]
+                pd_cal = VertexBasedPersistenceDiagramsCalculator(vertex_degree_signatures)
+            elif graph_filtration == "heat_kernel":
+                from ...models.vertex_weight_persistent_feature import ExtendedVertexBasedPersistenceDiagramsCalculator
+                from ...utils.graph_signatures import heat_kernel_signature
+                graphs = self.get_networkx_graphs()
+                dgms = []
+                pd_cal = ExtendedVertexBasedPersistenceDiagramsCalculator(
+                    lambda graph: heat_kernel_signature(graph, 0.1))
+            
+            for graph in tqdm(graphs, desc="Extracting PDs"):
+                dgms.append(pd_cal(graph))
+            with open(file_name, "wb") as f:
+                pickle.dump([d.to_list() for d in dgms], f)
 
         for graph_dgm in dgms:
             for d in graph_dgm:
@@ -58,6 +74,7 @@ class MultiGraphsDataset(SklearnDataset):
         graph_kernel = params.dataset.graph_kernel
         graph_vector = params.dataset.graph_vector
         graph_filtration = params.dataset.graph_filtration
+        graph_signature = params.dataset.graph_signature
 
         assert not (graph_vector and graph_kernel), "Only vector or kernel"
 

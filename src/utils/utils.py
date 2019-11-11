@@ -30,7 +30,7 @@ def normalize_sparse_matrix(mx):
 
 
 def get_adj_sparse_matrix(adj):
-    #adj = sp.coo_matrix(
+    # adj = sp.coo_matrix(
     #    (np.ones(len(edges)), (edges[:, 0], edges[:, 1])),
     #    shape=(num_nodes, num_nodes),
     #    dtype=np.float32)

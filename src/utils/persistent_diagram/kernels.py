@@ -35,7 +35,10 @@ def bottleneck_kernel(
     return matrix
 
 
-def sliced_wasserstein_kernel():
+def wasserstein_distance(dg1: np.ndarray, dg2: np.ndarray, p):
     pass
 
+
+def sliced_wasserstein_kernel():
+    pass
 
