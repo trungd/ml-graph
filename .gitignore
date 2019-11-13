@@ -1,6 +1,5 @@
 logs/
 model_outputs/
-comptopo/
 .idea/
 
 *.pyc
