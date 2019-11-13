@@ -4,8 +4,6 @@ import torch
 import torch.nn as nn
 from dlex.torch.models import ClassificationModel
 from dlex.torch.utils.ops_utils import maybe_cuda
-from ..utils.graph_signatures import heat_kernel_signature
-from ..utils.persistent_diagram import PersistenceDiagrams
 from torch import Tensor
 from torch.autograd import Variable
 from torch.nn.modules.module import Module
@@ -75,41 +73,6 @@ class SLayer(Module):
         x = x.squeeze()
 
         return x
-
-
-class VertexBasedPersistenceDiagramsCalculator:
-    def __init__(self, signature_fn=None):
-        self.signature_fn = signature_fn
-
-    def __call__(self, graph: nx.Graph) -> PersistenceDiagrams:
-        if self.signature_fn:
-            weights = self.signature_fn(graph)
-            for n in graph.nodes:
-                graph.nodes[n]['weight'] = weights[n]
-
-        from dionysus import Simplex, Filtration, homology_persistence, init_diagrams
-
-        cliques = set()
-        for v1, v2 in graph.edges:
-            for v in graph.nodes:
-                if v != v1 and v != v2 and graph.has_edge(v, v1) and graph.has_edge(v, v2):
-                    cliques.add(tuple(sorted([v, v1, v2])))
-        cliques = set()
-        simplices = [[v] for v in graph.nodes] + [[u, v] for u, v in graph.edges] + list(cliques)
-
-        max_weight = max([graph.nodes[v]['weight'] for v in graph.nodes])
-        f_vertices = [max_weight - graph.nodes[v]['weight'] for v in graph.nodes]
-        f_edges = [max_weight - min(graph.nodes[v]['weight'] for v in e) for e in graph.edges]
-        f_cliques = [min(graph.nodes[v]['weight'] for v in c) for c in cliques]
-
-        f_values = f_vertices + f_edges + f_cliques
-
-        f = Filtration([Simplex(s, f) for s, f in zip(simplices, f_values)])
-        f.sort()
-        m = homology_persistence(f)
-        dgms = init_diagrams(m, f)
-        dgms = [[[p.birth, p.death] for p in d] for d in dgms]
-        return PersistenceDiagrams.from_list(dgms)
 
 
 class Model(ClassificationModel):
@@ -194,113 +157,3 @@ class Model(ClassificationModel):
         x = torch.cat(x, 1)
         x = self.linear(x)
         return x
-
-
-import gudhi as gd
-
-
-class ExtendedVertexBasedPersistenceDiagramsCalculator(VertexBasedPersistenceDiagramsCalculator):
-    """
-    Implementation of the extended persistence diagrams in the paper
-        PersLay: A Neural Network Layer of Persistence Diagrams and New Graph Topological Signatures
-    """
-    def __init__(self, signature_fn=None):
-        super().__init__(signature_fn)
-
-    @staticmethod
-    def _get_base_simplex(graph: nx.Graph):
-        st = gd.SimplexTree()
-        for node in graph.nodes:
-            st.insert([node], filtration=-1e10)
-        
-        for u, v in graph.edges:
-            st.insert([u, v], filtration=-1e10)
-        return st.get_filtration()
-
-    def __call__(self, graph: nx.Graph) -> PersistenceDiagrams:
-        if self.signature_fn:
-            weights = self.signature_fn(graph)
-            for n in graph.nodes:
-                graph.nodes[n]['weight'] = weights[n]
-        basesimplex = self._get_base_simplex(graph)
-        filtration_val = heat_kernel_signature(graph, 0.1)
-        idx2node = {i: val for i, val in zip(range(len(graph)), filtration_val.keys())}
-        filtration_val = np.array(list(filtration_val.values()))
-
-        min_val, max_val = filtration_val.min(), filtration_val.max()
-        # edge based:
-        # else:
-        #     min_val = min([filtration_val[xs[i], ys[i]] for i in range(num_edges)])
-        #     max_val = max([filtration_val[xs[i], ys[i]] for i in range(num_edges)])
-    
-        st = gd.SimplexTree()
-        st.set_dimension(2)
-    
-        for simplex, filt in basesimplex:
-            st.insert(simplex=simplex + [-2], filtration=-3)
-    
-        if True:  # vertex-based
-            if max_val == min_val:
-                fa = -.5 * np.ones(filtration_val.shape)
-                fd = .5 * np.ones(filtration_val.shape)
-            else:
-                fa = -2 + (filtration_val - min_val) / (max_val - min_val)
-                fd = 2 - (filtration_val - min_val) / (max_val - min_val)
-
-            for vid in range(len(graph.nodes)):
-                st.assign_filtration(simplex=[idx2node[vid]], filtration=fa[vid])
-                st.assign_filtration(simplex=[idx2node[vid], -2], filtration=fd[vid])
-        #else:
-        #    A = nx.adjacency_matrix(graph).todense()
-        #    (xs, ys) = np.where(np.triu(A))
-        #    num_edges = len(graph.edges)
-        #    if max_val == min_val:
-        #        fa = -.5 * np.ones(filtration_val.shape)
-        #        fd = .5 * np.ones(filtration_val.shape)
-        #    else:
-        #        fa = -2 + (filtration_val - min_val) / (max_val - min_val)
-        #        fd = 2 - (filtration_val - min_val) / (max_val - min_val)
-        #    for eid in range(num_edges):
-        #        vidx, vidy = xs[eid], ys[eid]
-        #        st.assign_filtration(simplex=[vidx, vidy], filtration=fa[vidx, vidy])
-        #        st.assign_filtration(simplex=[vidx, vidy, -2], filtration=fd[vidx, vidy])
-        #    for vid in range(num_vertices):
-        #        if len(np.where(A[vid, :] > 0)[0]) > 0:
-        #            st.assign_filtration(simplex=[vid], filtration=min(fa[vid, np.where(A[vid, :] > 0)[0]]))
-        #            st.assign_filtration(simplex=[vid, -2], filtration=min(fd[vid, np.where(A[vid, :] > 0)[0]]))
-    
-        st.make_filtration_non_decreasing()
-        distorted_dgm = st.persistence()
-        normal_dgm = dict()
-        normal_dgm["Ord0"], normal_dgm["Rel1"], normal_dgm["Ext0"], normal_dgm["Ext1"] = [], [], [], []
-        for point in range(len(distorted_dgm)):
-            dim, b, d = distorted_dgm[point][0], distorted_dgm[point][1][0], distorted_dgm[point][1][1]
-            pt_type = "unknown"
-            if (-2 <= b <= -1 and -2 <= d <= -1) or (b == -.5 and d == -.5):
-                pt_type = "Ord" + str(dim)
-            if (1 <= b <= 2 and 1 <= d <= 2) or (b == .5 and d == .5):
-                pt_type = "Rel" + str(dim)
-            if (-2 <= b <= -1 and 1 <= d <= 2) or (b == -.5 and d == .5):
-                pt_type = "Ext" + str(dim)
-            if np.isinf(d):
-                continue
-            else:
-                b, d = min_val + (2 - abs(b)) * (max_val - min_val), min_val + (2 - abs(d)) * (max_val - min_val)
-                if b <= d:
-                    normal_dgm[pt_type].append(tuple([distorted_dgm[point][0], tuple([b, d])]))
-                else:
-                    normal_dgm[pt_type].append(tuple([distorted_dgm[point][0], tuple([d, b])]))
-    
-        dgmOrd0 = np.array([normal_dgm["Ord0"][point][1] for point in range(len(normal_dgm["Ord0"]))])
-        dgmExt0 = np.array([normal_dgm["Ext0"][point][1] for point in range(len(normal_dgm["Ext0"]))])
-        dgmRel1 = np.array([normal_dgm["Rel1"][point][1] for point in range(len(normal_dgm["Rel1"]))])
-        dgmExt1 = np.array([normal_dgm["Ext1"][point][1] for point in range(len(normal_dgm["Ext1"]))])
-        if dgmOrd0.shape[0] == 0:
-            dgmOrd0 = np.zeros([0, 2])
-        if dgmExt1.shape[0] == 0:
-            dgmExt1 = np.zeros([0, 2])
-        if dgmExt0.shape[0] == 0:
-            dgmExt0 = np.zeros([0, 2])
-        if dgmRel1.shape[0] == 0:
-            dgmRel1 = np.zeros([0, 2])
-        return PersistenceDiagrams.from_list([dgmOrd0, dgmExt0, dgmRel1, dgmExt1])

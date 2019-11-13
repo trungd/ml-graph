@@ -6,9 +6,10 @@ import numpy as np
 from dlex.datasets.sklearn import SklearnDataset
 from dlex.utils import logger
 from tqdm import tqdm
+from comptopo import PersistenceDiagrams
+from comptopo.vectors import persistence_image, persistence_landscape
 
-from src.models.vertex_weight_persistent_feature import PersistenceDiagrams
-from ...utils.persistent_diagram.vectors import persistence_image, persistence_landscape
+from ...utils.graph_signatures import assign_vertex_weight
 
 
 class SingleGraphDataset(SklearnDataset):
@@ -36,29 +37,35 @@ class MultiGraphsDataset(SklearnDataset):
 
     def _get_persistent_diagrams(self) -> List[List[PersistenceDiagrams]]:
         graph_filtration = self.params.dataset.graph_filtration
+        graph_signature = self.params.dataset.graph_signature
+
         file_name = os.path.join(self.builder.get_processed_data_dir(), "%s.pkl" % self.feature_name)
-        if os.path.exists(file_name):
+        load_diagrams = False
+        if load_diagrams and os.path.exists(file_name):
             with open(file_name, "rb") as f:
                 dgms = pickle.load(f)
             dgms = [PersistenceDiagrams.from_list(d) for d in dgms]
             logger.info("Features loaded from %s" % file_name)
         else:
-            if graph_filtration == "vertex_degree":
-                from ...models.vertex_weight_persistent_feature import VertexBasedPersistenceDiagramsCalculator
-                from ...utils.graph_signatures import vertex_degree_signatures
-                graphs = self.get_networkx_graphs()
-                dgms = []
-                pd_cal = VertexBasedPersistenceDiagramsCalculator(vertex_degree_signatures)
-            elif graph_filtration == "heat_kernel":
-                from ...models.vertex_weight_persistent_feature import ExtendedVertexBasedPersistenceDiagramsCalculator
-                from ...utils.graph_signatures import heat_kernel_signature
-                graphs = self.get_networkx_graphs()
-                dgms = []
-                pd_cal = ExtendedVertexBasedPersistenceDiagramsCalculator(
-                    lambda graph: heat_kernel_signature(graph, 0.1))
+            graphs = self.get_networkx_graphs()
             
-            for graph in tqdm(graphs, desc="Extracting PDs"):
-                dgms.append(pd_cal(graph))
+            if graph_signature == 'vertex_degree':
+                for graph in graphs:
+                    assign_vertex_weight(graph, 'degree')
+            elif graph_signature == 'hks':
+                for graph in graphs:
+                    assign_vertex_weight(graph, 'hks', t=0.1)
+
+            dgms = []
+            if graph_filtration == "vertex_weight":
+                from comptopo.filtrations.vertex_weight import vertex_weight_persistence_diagrams
+                for graph in tqdm(graphs, desc="Extracting PDs"):
+                    dgms.append(vertex_weight_persistence_diagrams(graph, tool='gudhi'))
+            elif graph_filtration == "extended_vertex_weight":
+                from comptopo.filtrations.vertex_weight_extended import extended_vertex_weight_persistence_diagrams
+                for graph in tqdm(graphs, desc="Extracting PDs"):
+                    dgms.append(extended_vertex_weight_persistence_diagrams(graph))
+
             with open(file_name, "wb") as f:
                 pickle.dump([d.to_list() for d in dgms], f)
 
@@ -102,7 +109,7 @@ class MultiGraphsDataset(SklearnDataset):
                 self.X_train = gk.fit_transform(self.X_train)
                 self.X_test = gk.transform(self.X_test)
             elif graph_kernel == "bottleneck_distance":
-                dgms = self._get_persistent_diagrams(graph_filtration)
+                dgms = self._get_persistent_diagrams()
                 self.init_dataset(dgms, self.y)
             else:
                 raise Exception("Graph kernel is not valid: %s" % graph_kernel)

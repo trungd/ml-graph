@@ -6,7 +6,8 @@ dataset:
   name: src.datasets.grakel.Grakel
   dataset_name: REDDIT-MULTI-5K
   graph_kernel: bottleneck_distance
-  graph_filtration: vertex_degree
+  graph_filtration: vertex_weight
+  graph_signature: vertex_degree
   test_size: 0.1
 train:
   num_epochs: 40
