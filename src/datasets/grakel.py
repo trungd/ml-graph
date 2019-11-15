@@ -1,4 +1,5 @@
 import os
+import random
 
 import torch
 
@@ -15,21 +16,25 @@ from .base.sklearn import MultiGraphsDataset
 from ..utils.utils import get_networkx_graph
 
 
+DATASETS_NO_NODE_LIST = ['REDDIT-MULTI-5K', 'REDDIT-MULTI-12K', 'COLLAB']
+
+
 class Grakel(DatasetBuilder):
     def __init__(self, params: AttrDict):
         super().__init__(params)
         
         dataset = datasets.fetch_dataset(params.dataset.dataset_name, verbose=False)
         G, y = dataset.data, dataset.target
-        if self.configs.dataset_name in ['REDDIT-MULTI-5K', 'REDDIT-MULTI-12K']:
-            logger.info("Dataset size: %d", len(y))
-            logger.info("Average node count: %.2f",
-                        sum([len(set([v[0] for v in g[0]]) | set([v[1] for v in g[1]])) for g in G]) / len(G))
-            logger.info("Average edge count: %.2f", sum([len(g[0]) for g in G]) / len(G))
+
+        if self.configs.dataset_name in DATASETS_NO_NODE_LIST:
+            logger.debug("Dataset size: %d", len(y))
+            logger.debug("Average node count: %.2f",
+                         sum([len(set([v[0] for v in g[0]]) | set([v[1] for v in g[1]])) for g in G]) / len(G))
+            logger.debug("Average edge count: %.2f", sum([len(g[0]) for g in G]) / len(G))
         else:
-            logger.info("Dataset size: %d", len(y))
-            logger.info("Average node count: %.2f", sum([len(g[1]) for g in G]) / len(G))
-            logger.info("Average edge count: %.2f", sum([len(g[2]) for g in G]) / len(G))
+            logger.debug("Dataset size: %d", len(y))
+            logger.debug("Average node count: %.2f", sum([len(g[1]) for g in G]) / len(G))
+            logger.debug("Average edge count: %.2f", sum([len(g[0]) for g in G]) / len(G))
         self.G = G
         self.y = y
 
@@ -62,7 +67,7 @@ class SklearnGrakelDataset(MultiGraphsDataset):
         return len(set(self.y))
 
     def get_networkx_graphs(self):
-        if self.configs.dataset_name in ['REDDIT-MULTI-5K']:
+        if self.configs.dataset_name in DATASETS_NO_NODE_LIST:
             return [get_networkx_graph(
                 {v: 0 for v in set([v[0] for v in g[0]]) | set([v[1] for v in g[1]])},
                 g[0],
@@ -77,7 +82,10 @@ class PytorchGrakelDataset(Dataset):
         self.sklearn_dataset = SklearnGrakelDataset(builder)
         X = self.sklearn_dataset.X_train if mode == "train" else self.sklearn_dataset.X_test
         y = self.sklearn_dataset.y_train if mode == "train" else self.sklearn_dataset.y_test
-        y = [i - 1 for i in y]
+        if -1 in y:
+            y = [i if i != -1 else 0 for i in y]
+        elif 0 not in y:
+            y = [i - 1 for i in y]
         self._data = list(zip(X, y))
         logger.info("%s size: %d" % (mode, len(self._data)))
         

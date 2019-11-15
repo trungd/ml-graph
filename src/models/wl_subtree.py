@@ -80,7 +80,7 @@ def weisfeiler_lehman_labels(
 
 class WLSubtree(BaseEstimator, TransformerMixin):
     def __init__(self, num_iterations):
-        self.num_iterations = num_iterations
+        self.num_iterations = num_iterations or 2
 
     def fit_transform(self, graphs: List[nx.Graph], y=None, **fit_params):
         label_dicts = weisfeiler_lehman_labels(graphs, self.num_iterations)

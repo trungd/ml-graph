@@ -31,8 +31,9 @@ class MultiGraphsDataset(SklearnDataset):
 
     @property
     def feature_name(self):
-        return "%s_diagrams" % (
-            self.params.dataset.graph_filtration
+        return "fil_%s_sig_%s_diagrams" % (
+            self.params.dataset.graph_filtration,
+            self.params.dataset.graph_signature
         )
 
     def _get_persistent_diagrams(self) -> List[List[PersistenceDiagrams]]:
@@ -40,7 +41,7 @@ class MultiGraphsDataset(SklearnDataset):
         graph_signature = self.params.dataset.graph_signature
 
         file_name = os.path.join(self.builder.get_processed_data_dir(), "%s.pkl" % self.feature_name)
-        load_diagrams = False
+        load_diagrams = True
         if load_diagrams and os.path.exists(file_name):
             with open(file_name, "rb") as f:
                 dgms = pickle.load(f)
@@ -48,13 +49,19 @@ class MultiGraphsDataset(SklearnDataset):
             logger.info("Features loaded from %s" % file_name)
         else:
             graphs = self.get_networkx_graphs()
-            
-            if graph_signature == 'vertex_degree':
+
+            if graph_signature == 'vertex_label':
+                for graph in graphs:
+                    assign_vertex_weight(graph, 'vertex_label')
+            elif graph_signature == 'vertex_degree':
                 for graph in graphs:
                     assign_vertex_weight(graph, 'degree')
             elif graph_signature == 'hks':
                 for graph in graphs:
                     assign_vertex_weight(graph, 'hks', t=0.1)
+            elif graph_signature == 'random':
+                for graph in graphs:
+                    assign_vertex_weight(graph, 'random')
 
             dgms = []
             if graph_filtration == "vertex_weight":
@@ -81,10 +88,8 @@ class MultiGraphsDataset(SklearnDataset):
         graph_kernel = params.dataset.graph_kernel
         graph_vector = params.dataset.graph_vector
         graph_filtration = params.dataset.graph_filtration
-        graph_signature = params.dataset.graph_signature
-
+        
         assert not (graph_vector and graph_kernel), "Only vector or kernel"
-
         if graph_kernel:
             if graph_kernel == "shortest_path":
                 from grakel import GraphKernel
@@ -115,9 +120,17 @@ class MultiGraphsDataset(SklearnDataset):
                 raise Exception("Graph kernel is not valid: %s" % graph_kernel)
         elif graph_vector:
             if graph_vector == "wl-subtree":
+                #graphs = self.get_networkx_graphs()
+                #from ...models.wl_subtree import WLSubtree
+                #feature_extractor = WLSubtree(num_iterations=params.dataset.h)
+                #X = feature_extractor.fit_transform(graphs)
+
                 graphs = self.get_networkx_graphs()
-                from ...models.wl_subtree import WLSubtree
-                feature_extractor = WLSubtree(num_iterations=params.dataset.h)
+                from ...models.persistent_wl_subtree import PersistentWLSubtree
+                feature_extractor = PersistentWLSubtree(
+                    use_label_persistence=False,
+                    use_cycle_persistence=False,
+                    num_iterations=params.dataset.h)
                 X, _ = feature_extractor.fit_transform(graphs)
             elif graph_vector == "persistent-wl":
                 graphs = self.get_networkx_graphs()

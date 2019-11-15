@@ -1,0 +1,46 @@
+# Reproduction of experiments in
+# @inproceedings{rieck2019persistent,
+#   title={A Persistent Weisfeiler-Lehman Procedure for Graph Classification},
+#   author={Rieck, Bastian and Bock, Christian and Borgwardt, Karsten},
+#   booktitle={International Conference on Machine Learning},
+#   pages={5448--5458},
+#   year={2019}
+# }
+
+backend: sklearn
+env:
+  small:
+    title: "Small Datasets"
+    variables:
+      dataset_name:
+        - MUTAG
+        - PTC_MR
+        - PTC_FR
+        - PTC_MM
+        - PTC_FM
+      graph_vector:
+        - wl-subtree      # Weisfeiler-Lehman subtree kernel
+        - persistent-wl   # Persistent WL features H0
+        - persistent-wlc  # Persistent WL fegatures H0 + H1
+    report: { type: table, row: graph_vector, col: dataset_name }
+  medium:
+    title: "Medium Datasets"
+    variables:
+      dataset_name:
+        - NCI109
+        - DD
+      graph_vector:
+        - wl-subtree
+        - persistent-wl
+        - persistent-wlc
+    report: { type: table, row: graph_vector, col: dataset_name }
+model:
+  name: dlex.sklearn.models.svc.SVC
+dataset:
+  name: src.datasets.grakel.Grakel
+  dataset_name: ~dataset_name
+  graph_vector: ~graph_vector
+train:
+  cross_validation: 0.1
+test:
+  metrics: [acc]

@@ -1,0 +1,33 @@
+backend: pytorch
+variables:
+  dataset_name:
+    - MUTAG
+    - NCI109
+    - DD
+  graph_signature:
+    - vertex_label
+    - random
+    - hks
+    - vertex_degree
+model:
+  name: src.models.vertex_weight_persistent_feature.Model
+  kernel: precomputed
+dataset:
+  name: src.datasets.grakel.Grakel
+  dataset_name: ~dataset_name
+  graph_kernel: bottleneck_distance
+  graph_filtration: vertex_weight
+  graph_signature: ~graph_signature
+  test_size: 0.1
+  random_state: 1
+train:
+  num_epochs: 30
+  batch_size: 128
+  optimizer:
+    name: sgd
+    lr: 0.1
+  lr_scheduler:
+    milestones: [10, 15, 20]
+    gamma: 0.1
+test:
+  metrics: [acc]

@@ -353,5 +353,5 @@ class PersistentWLSubtree(TransformerMixin, BaseEstimator):
             if it not in num_columns_per_iteration:
                 num_columns_per_iteration[it] = X_per_iteration[-1].shape[1]
 
-        logger.info("Number of columns per iteration: %s", str(num_columns_per_iteration))
+        logger.debug("Number of columns per iteration: %s", str(num_columns_per_iteration))
         return np.concatenate(X_per_iteration, axis=1), num_columns_per_iteration

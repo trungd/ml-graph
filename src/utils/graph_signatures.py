@@ -1,4 +1,5 @@
 from typing import Dict
+import random
 
 from scipy.sparse import csgraph
 from scipy.linalg import eigh
@@ -28,10 +29,17 @@ def assign_vertex_weight(graph: nx.Graph, func='degree', **kwargs):
     :param graph: 
     :param func: 
         One of
+        - random
         - degree: vertex degree
         - hks: heat kernel signature
     """
-    if func == 'degree':
+    if func == 'vertex_label':
+        for n in graph.nodes:
+            graph.nodes[n]['weight'] = graph.nodes[n]['label'] if 'label' in graph.nodes[n] else 0.
+    elif func == 'random':
+        for n in graph.nodes:
+            graph.nodes[n]['weight'] = random.random()
+    elif func == 'degree':
         for n in graph.nodes:
             graph.nodes[n]['weight'] = graph.degree[n]
     elif func == 'hks':
@@ -43,3 +51,5 @@ def assign_vertex_weight(graph: nx.Graph, func='degree', **kwargs):
         ret = np.square(eigen_vectors).dot(np.diag(np.exp(-t * eigen_values))).sum(axis=1)
         for i, n in enumerate(nodes):
             graph.nodes[n]['weight'] = ret[i]
+    else:
+        raise ValueError
