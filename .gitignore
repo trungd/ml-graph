@@ -6,3 +6,4 @@ model_outputs/
 repos/
 *.ipynb_checkpoints
 *.ipynb
+lisp_comptopo
