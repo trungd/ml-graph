@@ -1,0 +1,74 @@
+backend: pytorch
+random_seed: 42
+env:
+  small:
+    default: true
+    variables:
+      dataset_name:
+        #- MUTAG
+        #- PTC_MR
+        #- PTC_FR
+        #- PTC_MM
+        #- PTC_FM
+        #- IMDB-MULTI
+        #- IMDB-BINARY
+        - NCI109
+        #- PROTEINS
+        #- DD
+      graph_signature:
+        #- random
+        #- degree
+        #- hks
+        - rpf
+      num_heads: [8, 4, 2]
+    report:
+      type: raw
+      reduce: [num_heads]
+  large:
+    default: false
+    variables:
+      dataset_name:
+        - REDDIT-MULTI-5K
+        #- REDDIT-MULTI-12K
+      graph_signature:
+        - hks
+        - degree
+        - random
+model:
+  name: src.models.set_transformer.SetTransformer
+  encoder:
+    dim_model: 128
+    num_heads: ~num_heads
+    num_layers: 2
+  append_embed: true
+  dense_dim:
+    - 128
+    - 64
+    - 16
+  dropout: 0.5
+dataset:
+  name: src.datasets.grakel.Grakel
+  dataset_name: ~dataset_name
+  graph_kernel: bottleneck_distance
+  graph_features:
+    persistence_diagram:
+      type: persistence_diagram
+      keys: [h0_h1_with_embeddings]
+      filtration: vertex_weight
+      signature: ~graph_signature
+      reuse: true
+  test_size: 0.1
+  random_state: 1
+train:
+  num_epochs: 60
+  early_stop: 15
+  batch_size: 16
+  optimizer:
+    name: adam
+    lr: 0.01
+  lr_scheduler:
+    milestones: [10, 20, 30, 40]
+    gamma: 0.5
+  cross_validation: 10
+test:
+  metrics: [acc]

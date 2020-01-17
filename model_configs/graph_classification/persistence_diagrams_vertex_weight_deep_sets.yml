@@ -1,0 +1,119 @@
+backend: pytorch
+random_seed: 42
+env:
+  small:
+    default: true
+    variables:
+      dataset:
+        #- MUTAG
+        #- PROTEINS
+        #- IMDB-BINARY
+        - IMDB-MULTI
+        #- MUTAG
+        #- NCI1
+        #- NCI109
+        #- REDDIT-BINARY
+        #- DD
+      signature:
+        #- random
+        #- degree
+        - rpf
+        #- hks
+      feature_name:
+        - embed_rpf_1.2.3.4.5.6.7.8
+        - embed_rpf_2.4.6
+        - embed_rpf_3.6.9
+      dropout: [0.0, 0.2]
+      hidden_dim: [64, 128]
+      dense_dim: [64, 128]
+    report:
+      type: raw
+      reduce: [dropout]
+  nci:
+    default: false
+    variables:
+      dataset:
+        - NCI1
+        #- NCI109
+      signature:
+        - rpf
+      feature_name:
+        - embed_rpf_1.2.3.4.5.6.7.8
+        - embed_rpf_2.4.6
+        - embed_rpf_3.6.9
+      dropout: [0.0, 0.2]
+      hidden_dim: [64, 128]
+      dense_dim: [64, 128]
+    report:
+      type: raw
+      reduce: [dropout]
+  dd:
+    default: false
+    variables:
+      dataset: [DD]
+      signature: [rpf]
+      feature_name:
+        - embed_rpf_2.4.6
+        - embed_rpf_3.6.9
+      dropout: [0.0, 0.2]
+      hidden_dim: [64, 128]
+      dense_dim: [64, 128]
+    report:
+      type: raw
+      reduce: [dropout]
+  ptc:
+    default: false
+    variables:
+      dataset:
+        - PTC_MR
+        - PTC_FR
+        - PTC_MM
+        - PTC_FM
+      feature_name:
+        - embed_rpf_1.2.3.4.5.6.7.8
+        - embed_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
+      dropout: 0.2
+      hidden_dim: 32
+      dense_dim: 32
+    report:
+      type: raw
+      reduce: []
+  large:
+    default: false
+    variables:
+      dataset:
+        - REDDIT-MULTI-5K
+        - REDDIT-MULTI-12K
+      signature:
+        #- degree
+        - hks
+model:
+  name: src.models.set_transformer.DeepSets
+  hidden_dim: ~hidden_dim
+  num_layers: 4
+  dense_dim: ~dense_dim
+  dropout: ~dropout
+dataset:
+  name: src.datasets.grakel.Grakel
+  dataset_name: ~dataset
+  graph_kernel: bottleneck_distance
+  graph_features:
+    persistence_diagram:
+      type: persistence_diagram
+      key: ~feature_name
+      filtration: vertex_weight
+      signature: rpf
+      reuse: true
+  test_size: 0.1
+train:
+  num_epochs: 100
+  batch_size: 128
+  optimizer:
+    name: adam
+    lr: 0.01
+  lr_scheduler:
+    milestones: [15, 30, 45, 60]
+    gamma: 0.5
+  cross_validation: 10
+test:
+  metrics: [acc]

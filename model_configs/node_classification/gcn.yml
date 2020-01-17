@@ -1,0 +1,23 @@
+backend: pytorch
+env:
+  cora:
+    variables:
+      dataset_name:
+        #- src.datasets.gcn.Cora
+        - Cora
+        #- src.datasets.pubmed.PubMed
+model:
+  name: src.models.gcn.GCN
+  hidden_dim: [32]
+  dropout: 0.5
+dataset:
+  name: ~dataset_name
+train:
+  num_epochs: 200
+  batch_size: 256
+  eval: [test]
+  optimizer:
+    name: adam
+    lr: 0.01
+test:
+  metrics: [acc]

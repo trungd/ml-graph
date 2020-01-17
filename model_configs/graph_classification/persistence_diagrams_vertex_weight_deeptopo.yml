@@ -1,0 +1,84 @@
+# {
+#        Hofer17c,
+#        author    = {C.~Hofer and R.~Kwitt and M.~Niethammer and A.~Uhl},
+#        title     = {Deep Learning with Topological Signatures},
+#        booktitle = {NIPS},
+#        year      = 2017,
+#        note      = {accepted}
+# }
+
+backend: pytorch
+random_seed: 42
+env:
+  small:
+    default: true
+    variables:
+      dataset_name:
+        #- MUTAG
+        #- PTC_MR
+        #- PTC_FR
+        #- PTC_MM
+        #- PTC_FM
+        - IMDB-MULTI
+        #- NCI109
+        #- DD
+        #- COLLAB
+      graph_signature:
+        #- rpf
+        - degree
+        #- vertex_label
+        #- hks
+      dropout: [0.1, 0.2, 0.5]
+    report:
+      type: raw
+      reduce: [dropout]
+  large:
+    default: false
+    variables:
+      dataset_name:
+        - REDDIT-MULTI-5K
+        - REDDIT-MULTI-12K
+      graph_signature:
+        - rpf
+        #- random
+        #- hks
+        - degree
+model:
+  name: src.models.deeptopo.DeepSets
+  kernel: precomputed
+  deep_set:
+    dim:
+      h0_non_essential: 150
+      h0_essential: 50
+      h1_essential: 50
+    perm_op: sum
+  dense_dim: [200, 100, 50]
+  dropout: ~dropout
+dataset:
+  name: src.datasets.grakel.Grakel
+  dataset_name: ~dataset_name
+  graph_kernel: bottleneck_distance
+  graph_features:
+    persistence_diagram:
+      type: persistence_diagram
+      keys: [h0_non_essential, h0_essential, h1_essential]
+      filtration: vertex_weight
+      signature: ~graph_signature
+      transformers:
+        h0_non_essential: []
+      reuse: true
+  test_size: 0.1
+  random_state: 1
+train:
+  num_epochs: 40
+  batch_size: 128
+  early_stop: 15
+  optimizer:
+    name: adam
+    lr: 0.01
+  lr_scheduler:
+    milestones: [15, 30]
+    gamma: 0.1
+  cross_validation: 10
+test:
+  metrics: [acc]

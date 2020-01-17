@@ -29,7 +29,7 @@ def normalize_sparse_matrix(mx):
     return mx
 
 
-def get_adj_sparse_matrix(adj):
+def get_adj_sparse_matrix(adj) -> torch.FloatTensor:
     # adj = sp.coo_matrix(
     #    (np.ones(len(edges)), (edges[:, 0], edges[:, 1])),
     #    shape=(num_nodes, num_nodes),

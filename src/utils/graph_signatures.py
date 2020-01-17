@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Any, List
 import random
 
 from scipy.sparse import csgraph
@@ -14,7 +14,7 @@ def vertex_degree_signatures(graph: nx.Graph) -> Dict[any, float]:
     return ret
 
 
-def heat_kernel_signature(graph: nx.Graph, t) -> Dict[any, float]:
+def heat_kernel_signature(graph: nx.Graph, t) -> Dict[Any, float]:
     nodes = list(graph.nodes.keys())
     A = nx.adjacency_matrix(graph, nodelist=nodes).todense()
     L = csgraph.laplacian(A, normed=True)
@@ -23,7 +23,44 @@ def heat_kernel_signature(graph: nx.Graph, t) -> Dict[any, float]:
     return {node: ret[i] for i, node in enumerate(nodes)}
 
 
-def assign_vertex_weight(graph: nx.Graph, func='degree', **kwargs):
+def return_probability_signature(graph: nx.Graph, S: int, normalize: bool = False) -> Dict[Any, List[float]]:
+    nodes = list(graph.nodes.keys())
+    A = nx.adjacency_matrix(graph, nodelist=nodes).todense()
+    D = np.diag([graph.degree[n] for n in nodes])
+    P1 = np.matmul(np.linalg.pinv(D), A)
+    ret = [[] for _ in nodes]
+
+    P = P1
+    for s in range(S):
+        if normalize:
+            reg = sum([P[i, i] for i in range(len(nodes))])
+            if reg == 0.0:
+                reg = 1.0
+        for i in range(len(nodes)):
+            ret[i].append(P[i, i] / reg if normalize else P[i, i])
+        P = np.matmul(P, P1)
+    return {node: ret[i] for i, node in enumerate(nodes)}
+
+
+def random_walk_probability_edge_signature(graph: nx.Graph, S: int) -> Dict[Any, float]:
+    nodes = list(graph.nodes.keys())
+    node2idx = {n: i for i, n in enumerate(nodes)}
+    A = nx.adjacency_matrix(graph, nodelist=nodes).todense()
+    D = np.diag([graph.degree[n] for n in nodes])
+    P1 = np.matmul(np.linalg.pinv(D), A)
+    ret = {(u, v): [] for u, v in graph.edges}
+
+    P = P1
+    for s in range(S):
+        for i in range(len(nodes)):
+            for j in graph.neighbors(nodes[i]):
+                if (nodes[i], j) in ret:
+                    ret[(nodes[i], j)].append(max(P[i, node2idx[j]], P[node2idx[j], i]))
+        P = np.matmul(P, P1)
+    return ret
+
+
+def assign_vertex_weight(graph: nx.Graph, func='degree', weights=None, **kwargs):
     """
     Assign a weight to the attribute of each node in the graph
     :param graph: 
@@ -32,8 +69,12 @@ def assign_vertex_weight(graph: nx.Graph, func='degree', **kwargs):
         - random
         - degree: vertex degree
         - hks: heat kernel signature
+        - distance: distance to a source node (source must be provided in kwargs)
     """
-    if func == 'vertex_label':
+    if weights is not None:
+        for n in graph.nodes:
+            graph.nodes[n]['weight'] = weights[n]
+    elif func == 'vertex_label':
         for n in graph.nodes:
             graph.nodes[n]['weight'] = graph.nodes[n]['label'] if 'label' in graph.nodes[n] else 0.
     elif func == 'random':
@@ -43,7 +84,7 @@ def assign_vertex_weight(graph: nx.Graph, func='degree', **kwargs):
         for n in graph.nodes:
             graph.nodes[n]['weight'] = graph.degree[n]
     elif func == 'hks':
-        t = kwargs['t']
+        t = kwargs['t'] if 't' in kwargs else 0.1
         nodes = list(graph.nodes.keys())
         A = nx.adjacency_matrix(graph, nodelist=nodes).todense()
         L = csgraph.laplacian(A, normed=True)
@@ -51,5 +92,43 @@ def assign_vertex_weight(graph: nx.Graph, func='degree', **kwargs):
         ret = np.square(eigen_vectors).dot(np.diag(np.exp(-t * eigen_values))).sum(axis=1)
         for i, n in enumerate(nodes):
             graph.nodes[n]['weight'] = ret[i]
+    elif func == 'rpf' or func == 'norm_rpf':
+        ret = return_probability_signature(graph, 20, normalize=func[:5] == 'norm_')
+        for n in graph.nodes:
+            graph.nodes[n]['weight'] = ret[n]
+    elif func == 'non-rpf':
+        ret = return_probability_signature(graph, 20)
+        for n in graph.nodes:
+            graph.nodes[n]['weight'] = [1 - r for r in ret[n]]
+    elif func == 'rpf_lbl' or func == 'norm_rpf_lbl':
+        ret = return_probability_signature(graph, 20, normalize=func[:5] == 'norm_')
+        for n in graph.nodes:
+            graph.nodes[n]['weight'] = [r + graph.nodes[n]['label'] for r in ret[n]]
+    else:
+        raise ValueError("%s is not supported." % func)
+    
+    
+def assign_edge_weight(graph: nx.Graph, func: str):
+    if func == 'random':
+        for e in graph.edges:
+            graph.edges[e]['weight'] = random.random()
+    elif func == 'ollivier_ricci':
+        from GraphRicciCurvature.OllivierRicci import OllivierRicci
+        for edge in graph.edges:
+            graph.edges[edge]['weight'] = 1
+        orc = OllivierRicci(graph, alpha=0.5)
+        orc.compute_ricci_curvature()
+        for edge in orc.G.edges:
+            graph.edges[edge]['weight'] = orc.G.edges[edge]['ricciCurvature']
+    elif func == 'forman_ricci':
+        from GraphRicciCurvature.FormanRicci import FormanRicci
+        frc = FormanRicci(graph)
+        frc.compute_ricci_curvature()
+        for edge in frc.G.edges:
+            graph.edges[edge]['weight'] = 1 - frc.G.edges[edge]['formanCurvature']
+    elif func == 'rpf':
+        ret = random_walk_probability_edge_signature(graph, 20)
+        for e in graph.edges:
+            graph.edges[e]['weight'] = ret[e]
     else:
         raise ValueError

@@ -1,0 +1,55 @@
+backend: pytorch
+random_seed: 42
+env:
+  small:
+    default: true
+    variables:
+      dataset_name:
+        - MUTAG
+        - NCI109
+        - DD
+      graph_signature:
+        #- random
+        - degree
+        #- hks
+  large:
+    default: false
+    variables:
+      dataset_name:
+        - REDDIT-MULTI-5K
+        - REDDIT-MULTI-12K
+      graph_signature:
+        - degree
+        - random
+        - hks
+model:
+  name: src.models.set_transformer.WeightedDeepSets
+  hidden_dim: 32
+  num_layers: 1
+  dense_dim: [128, 64, 32]
+  dropout: 0.2
+dataset:
+  name: src.datasets.grakel.Grakel
+  dataset_name: ~dataset_name
+  graph_kernel: bottleneck_distance
+  graph_features:
+    persistence_diagram:
+      type: persistence_diagram
+      keys: [h0_non_essential]
+      filtration: vertex_weight
+      signature: ~graph_signature
+      reuse: true
+  test_size: 0.1
+  random_state: 1
+train:
+  num_epochs: 40
+  batch_size: 16
+  optimizer:
+    name: adam
+    lr: 0.01
+  lr_scheduler:
+    milestones: [10, 20]
+    gamma: 0.1
+  cross_validation: 5
+test:
+  metrics: [acc]

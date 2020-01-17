@@ -1,0 +1,20 @@
+backend: pytorch
+model:
+  name: src.models.line.LINE
+  dim: 128
+  order: 2
+dataset:
+  name: src.datasets.dblp.DBLP
+  edge_sampling: atlas
+  node_sampling: atlas
+  num_batches: 30000
+  K: 5
+train:
+  batch_size: 128
+  num_epochs: 10
+  eval: []
+  optimizer:
+    name: torch.optim.RMSprop
+    lr: 0.025
+test:
+  metrics: [acc]

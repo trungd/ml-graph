@@ -20,8 +20,8 @@ env:
         - PTC_FM
       graph_vector:
         - wl-subtree      # Weisfeiler-Lehman subtree kernel
-        - persistent-wl   # Persistent WL features H0
-        - persistent-wlc  # Persistent WL fegatures H0 + H1
+        - persistent_wl   # Persistent WL features H0
+        - persistent_wlc  # Persistent WL fegatures H0 + H1
     report: { type: table, row: graph_vector, col: dataset_name }
   medium:
     title: "Medium Datasets"
@@ -31,16 +31,19 @@ env:
         - DD
       graph_vector:
         - wl-subtree
-        - persistent-wl
-        - persistent-wlc
+        - persistent_wl
+        - persistent_wlc
     report: { type: table, row: graph_vector, col: dataset_name }
 model:
   name: dlex.sklearn.models.svc.SVC
 dataset:
   name: src.datasets.grakel.Grakel
   dataset_name: ~dataset_name
+  graph_features:
+    main:
+      type: ~graph_vector
   graph_vector: ~graph_vector
 train:
-  cross_validation: 0.1
+  cross_validation: 10
 test:
   metrics: [acc]

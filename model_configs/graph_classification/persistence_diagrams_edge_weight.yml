@@ -1,0 +1,61 @@
+backend: pytorch
+env:
+  small:
+    variables:
+      dataset_name:
+        #- MUTAG
+        #- NCI109
+        - DD
+      graph_signature:
+        #- random
+        #- ollivier_ricci
+        - forman_ricci
+  large:
+    variables:
+      dataset_name:
+        - REDDIT-MULTI-5K
+        - REDDIT-MULTI-12K
+      graph_signature:
+        #- random
+        #- ollivier_ricci
+        - forman_ricci
+model:
+  name: src.models.deep_sets.DeepSets
+  kernel: precomputed
+  deep_set:
+    dim:
+      h0: 150
+      h0_essential: 50
+      h1_essential: 50
+    perm_op: sum
+  dense_dim: [200, 100, 50]
+  dropout: 0.1
+dataset:
+  name: src.datasets.grakel.Grakel
+  dataset_name: ~dataset_name
+  graph_kernel: bottleneck_distance
+  graph_features:
+    persistence_diagrams:
+      type: persistence_diagrams
+      keys: [h0_non_essential, h0_essential, h1_essential]
+      filtration: edge_weight
+      signature: ~graph_signature
+      transformers:
+        h0: [upper_diagonal_transform]
+        h0_essential: [reduce_essential]
+        h1_essential: [reduce_essential]
+  test_size: 0.1
+  random_state: 1
+train:
+  num_epochs: 30
+  batch_size: 128
+  optimizer:
+    name: sgd
+    lr: 0.1
+  lr_scheduler:
+    milestones: [10, 15, 20]
+    gamma: 0.1
+  cross_validation: 10
+test:
+  metrics: [acc]
+random_seed: 16

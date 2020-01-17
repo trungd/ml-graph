@@ -1,85 +1,94 @@
+import json
 import os
-import pickle
+import random
+import re
 from typing import List
 
+import networkx as nx
 import numpy as np
+from comptopo import PersistenceDiagrams
+from comptopo.filtrations import edge_weight_persistence_diagrams, vertex_weight_persistence_diagrams, \
+    extended_vertex_weight_persistence_diagrams
+from comptopo.vectors import persistence_image, persistence_landscape
 from dlex.datasets.sklearn import SklearnDataset
 from dlex.utils import logger
 from tqdm import tqdm
-from comptopo import PersistenceDiagrams
-from comptopo.vectors import persistence_image, persistence_landscape
 
-from ...utils.graph_signatures import assign_vertex_weight
+from ...utils.graph_signatures import assign_vertex_weight, assign_edge_weight
+
+
+def save_persistence_diagrams(file_name: str, pds: List[PersistenceDiagrams]):
+    """
+    Save list of persistence diagrams in JSON format
+    :param file_name:
+    :param pds:
+    """
+    with open(file_name, "w") as f:
+        s = json.dumps([pd.to_dict() for pd in pds], indent=2)
+        s = re.sub(r'\s*\[\s*([\-a-zA-Z\.\d]+),\s*([\-a-zA-Z\.\d]+)\s*\](,?)\s*', r'[\1, \2]\3', s)
+        s = s.replace("],[", "], [")
+        f.write(s)
+        logger.debug("Persistence diagrams saved to %s" % file_name)
 
 
 class SingleGraphDataset(SklearnDataset):
     def __init__(self, builder):
         super().__init__(builder)
 
-    def get_networkx_graph(self):
-        raise NotImplementedError()
+    def get_networkx_graph(self) -> nx.Graph:
+        raise NotImplementedError
 
     @property
-    def num_classes(self):
-        raise NotImplementedError()
-
-
-class MultiGraphsDataset(SklearnDataset):
-    def __init__(self, builder):
-        super().__init__(builder)
-        self._input_size = None
-
-    @property
-    def feature_name(self):
+    def persistence_diagrams_tag(self):
+        configs = self.params.dataset.graph_features.persistence_diagram
         return "fil_%s_sig_%s_diagrams" % (
-            self.params.dataset.graph_filtration,
-            self.params.dataset.graph_signature
+            configs.filtration,
+            configs.signature
         )
+    
+    def _get_persistence_diagrams(self) -> List[PersistenceDiagrams]:
+        configs = self.params.dataset.graph_features.persistence_diagram
 
-    def _get_persistent_diagrams(self) -> List[List[PersistenceDiagrams]]:
-        graph_filtration = self.params.dataset.graph_filtration
-        graph_signature = self.params.dataset.graph_signature
+        file_name = os.path.join(self.builder.get_processed_data_dir(), "%s.json" % self.persistence_diagrams_tag)
 
-        file_name = os.path.join(self.builder.get_processed_data_dir(), "%s.pkl" % self.feature_name)
-        load_diagrams = True
-        if load_diagrams and os.path.exists(file_name):
-            with open(file_name, "rb") as f:
-                dgms = pickle.load(f)
-            dgms = [PersistenceDiagrams.from_list(d) for d in dgms]
-            logger.info("Features loaded from %s" % file_name)
-        else:
-            graphs = self.get_networkx_graphs()
+        dgms = None
+        if configs.reuse and os.path.exists(file_name):
+            try:
+                with open(file_name, "r") as f:
+                    dgms = json.load(f)
+                    dgms = [PersistenceDiagrams.from_dict(d) for d in dgms]
+                    logger.debug("Persistence diagrams loaded from %s" % file_name)
+            except ValueError:
+                dgms = None
+                
+        if not dgms:
+            graph = self.get_networkx_graph()
+            if configs.filtration == "vertex_weight":
+                from comptopo.filtrations import vertex_weight_persistence_diagrams
+                nodes = list(graph.nodes)
+                dgms = []
 
-            if graph_signature == 'vertex_label':
-                for graph in graphs:
-                    assign_vertex_weight(graph, 'vertex_label')
-            elif graph_signature == 'vertex_degree':
-                for graph in graphs:
-                    assign_vertex_weight(graph, 'degree')
-            elif graph_signature == 'hks':
-                for graph in graphs:
-                    assign_vertex_weight(graph, 'hks', t=0.1)
-            elif graph_signature == 'random':
-                for graph in graphs:
-                    assign_vertex_weight(graph, 'random')
+                maximum_hops = 5
+                if configs.signature == "distance":
+                    lengths = dict(nx.all_pairs_dijkstra_path_length(graph))
+                    hops = dict(nx.all_pairs_shortest_path_length(graph, cutoff=maximum_hops))
 
-            dgms = []
-            if graph_filtration == "vertex_weight":
-                from comptopo.filtrations.vertex_weight import vertex_weight_persistence_diagrams
-                for graph in tqdm(graphs, desc="Extracting PDs"):
-                    dgms.append(vertex_weight_persistence_diagrams(graph, tool='gudhi'))
-            elif graph_filtration == "extended_vertex_weight":
-                from comptopo.filtrations.vertex_weight_extended import extended_vertex_weight_persistence_diagrams
-                for graph in tqdm(graphs, desc="Extracting PDs"):
-                    dgms.append(extended_vertex_weight_persistence_diagrams(graph))
+                for src_node in tqdm(nodes, desc="Extracting PDs"):
+                    if configs.signature == "distance":
+                        weights = {}
+                        for node in graph:
+                            weights[node] = float('inf')
+                            if node in lengths[src_node] and node in hops[src_node]:
+                                if hops[src_node][node] <= maximum_hops:
+                                    weights[node] = - lengths[src_node][node]
+                        assign_vertex_weight(graph, weights=weights)
+                        dgms.append(vertex_weight_persistence_diagrams(graph, tool='gudhi', use_clique=False))
 
-            with open(file_name, "wb") as f:
-                pickle.dump([d.to_list() for d in dgms], f)
+            save_persistence_diagrams(file_name, dgms)
 
-        for graph_dgm in dgms:
-            for d in graph_dgm:
-                d.normalize()
-                d.threshold()
+        for d in dgms:
+            d.normalize()
+            d.threshold()
 
         return dgms
 
@@ -87,39 +96,113 @@ class MultiGraphsDataset(SklearnDataset):
         params = self.params
         graph_kernel = params.dataset.graph_kernel
         graph_vector = params.dataset.graph_vector
-        graph_filtration = params.dataset.graph_filtration
-        
+
         assert not (graph_vector and graph_kernel), "Only vector or kernel"
-        if graph_kernel:
-            if graph_kernel == "shortest_path":
+        dgms = self._get_persistence_diagrams()
+        self.init_dataset(dgms, self.y)
+
+    @property
+    def num_classes(self):
+        raise NotImplementedError
+
+
+class MultiGraphsDataset(SklearnDataset):
+    graph_features = {}
+
+    def __init__(self, builder):
+        super().__init__(builder)
+        self._input_size = None
+
+    @property
+    def feature_name(self):
+        configs = self.params.dataset.graph_features.persistence_diagram
+        return "fil_%s_sig_%s_diagrams" % (
+            configs.filtration,
+            configs.signature
+        )
+
+    def _get_persistence_diagrams(self) -> List[PersistenceDiagrams]:
+        configs = self.params.dataset.graph_features.persistence_diagram
+
+        file_name = os.path.join(self.builder.get_processed_data_dir(), "%s.json" % self.feature_name)
+
+        dgms = None
+        if configs.reuse and os.path.exists(file_name):
+            try:
+                with open(file_name, "r") as f:
+                    dgms = json.load(f)
+                    dgms = [PersistenceDiagrams.from_dict(d) for d in dgms]
+                    logger.debug("Persistence diagrams loaded from %s" % file_name)
+            except ValueError:
+                dgms = None
+
+        if not dgms:
+            graphs = self.get_networkx_graphs()
+            dgms = []
+            logger.debug("Filtration: %s", configs.filtration)
+            if configs.filtration == "vertex_weight":
+                for graph in tqdm(graphs, desc="Extracting PDs"):
+                    assign_vertex_weight(graph, configs.signature)
+                    dgms.append(vertex_weight_persistence_diagrams(graph, tool='gudhi', use_clique=True))
+            elif configs.filtration == "extended_vertex_weight":
+                for graph in tqdm(graphs, desc="Extracting PDs"):
+                    assign_vertex_weight(graph, configs.signature)
+                    dgms.append(extended_vertex_weight_persistence_diagrams(graph))
+            elif configs.filtration == "edge_weight":
+                for graph in tqdm(graphs, desc="Extracting PDs"):
+                    assign_edge_weight(graph, configs.signature)
+                    dgms.append(edge_weight_persistence_diagrams(graph, tool='gudhi'))
+
+            save_persistence_diagrams(file_name, dgms)
+
+        for d in dgms:
+            d.normalize()
+            d.threshold()
+
+        # for key in ['h0', 'h1', 'h0_non_essential', 'h0_essential', 'h1_essential']:
+        #     logger.debug("Sample of persistence diagrams (%s): %s", key, str(dgms[0][key]))
+
+        return dgms
+
+    def extract_features(self):
+        """
+        Extract graph features
+            - If there is one feature, its values are stored in X_train and X_test.
+            - If there are more than one features, its values are stored in self.graph_features.
+                X_train and X_test are the indices of graph in each set
+        """
+        self.init_dataset(list(range(len(self.y))), self.y)
+        G_train = [self.G[i] for i in self.X_train]
+        G_test = [self.G[i] for i in self.X_test]
+
+        for feat_name in self.configs.graph_features:
+            feat = self.configs.graph_features[feat_name]
+            if feat.type == "shortest_path":
                 from grakel import GraphKernel
                 gk = GraphKernel(kernel=dict(name="shortest_path"), normalize=True)
-                self.init_dataset(self.G, self.y)
-                self.X_train = gk.fit_transform(self.X_train)
-                self.X_test = gk.transform(self.X_test)
-            elif graph_kernel == "graphlet_sampling":
+                X = np.zeros([len(self.G), len(G_train)])
+                X[self.X_train] = gk.fit_transform(G_train)
+                X[self.X_test] = gk.transform(G_test)
+            elif feat.type == "graphlet_sampling":
                 from grakel import GraphKernel
                 gk = GraphKernel(kernel=[
                     dict(name="graphlet_sampling", sampling=dict(n_samples=500))], normalize=True)
-                self.init_dataset(self.G, self.y)
-                self.X_train = gk.fit_transform(self.X_train)
-                self.X_test = gk.transform(self.X_test)
-            elif graph_kernel == "wl-subtree":
+                X = np.zeros([len(self.G), len(G_train)])
+                X[self.X_train] = gk.fit_transform(G_train)
+                X[self.X_test] = gk.transform(G_test)
+            elif feat.type == "wl_subtree":
                 from grakel import GraphKernel
                 gk = GraphKernel(kernel=[
-                    dict(name="weisfeiler_lehman", niter=5),
+                    dict(name="weisfeiler_lehman", n_iter=5),
                     dict(name="subtree_wl")
                 ], normalize=True)
-                self.init_dataset(self.G, self.y)
-                self.X_train = gk.fit_transform(self.X_train)
-                self.X_test = gk.transform(self.X_test)
-            elif graph_kernel == "bottleneck_distance":
-                dgms = self._get_persistent_diagrams()
-                self.init_dataset(dgms, self.y)
-            else:
-                raise Exception("Graph kernel is not valid: %s" % graph_kernel)
-        elif graph_vector:
-            if graph_vector == "wl-subtree":
+                X = np.zeros([len(self.G), len(G_train)])
+                X[self.X_train] = gk.fit_transform(G_train)
+                X[self.X_test] = gk.transform(G_test)
+            elif feat.type == "persistence_diagram":
+                X = self._get_persistence_diagrams()
+                self._input_size = 2
+            elif feat.type == "wl-subtree":
                 #graphs = self.get_networkx_graphs()
                 #from ...models.wl_subtree import WLSubtree
                 #feature_extractor = WLSubtree(num_iterations=params.dataset.h)
@@ -130,39 +213,45 @@ class MultiGraphsDataset(SklearnDataset):
                 feature_extractor = PersistentWLSubtree(
                     use_label_persistence=False,
                     use_cycle_persistence=False,
-                    num_iterations=params.dataset.h)
+                    num_iterations=feat.h)
                 X, _ = feature_extractor.fit_transform(graphs)
-            elif graph_vector == "persistent-wl":
+            elif feat.type == "persistent_wl":
                 graphs = self.get_networkx_graphs()
                 from ...models.persistent_wl_subtree import PersistentWLSubtree
                 feature_extractor = PersistentWLSubtree(
                     use_label_persistence=True,
                     use_cycle_persistence=False,
-                    num_iterations=params.dataset.h)
+                    num_iterations=feat.h)
                 X, _ = feature_extractor.fit_transform(graphs)
-            elif graph_vector == "persistent-wlc":
+            elif feat.type == "persistent_wlc":
                 graphs = self.get_networkx_graphs()
                 from ...models.persistent_wl_subtree import PersistentWLSubtree
                 feature_extractor = PersistentWLSubtree(
                     use_label_persistence=True,
                     use_cycle_persistence=True,
-                    num_iterations=params.dataset.h)
+                    num_iterations=feat.h)
                 X, _ = feature_extractor.fit_transform(graphs)
-            elif graph_vector == "persistence_image":
-                dgms = self._get_persistent_diagrams(graph_filtration)
+            elif feat.type == "persistence_image":
+                dgms = self._get_persistence_diagrams()
                 X = persistence_image([
                     d[0].not_essential_points + d[0].essential_points for d in dgms])
                 self._input_size = 400
-            elif graph_vector == "persistence_landscape":
-                dgms = self._get_persistent_diagrams(graph_filtration)
+            elif feat.type == "persistence_landscape":
+                dgms = self._get_persistence_diagrams()
                 X = persistence_landscape([
                     d[0].not_essential_points + d[0].essential_points for d in dgms])
                 self._input_size = 500
             else:
-                raise Exception("Graph vector is not valid: %s" % graph_vector)
-            self.init_dataset(X, self.y)
-        else:
-            self.init_dataset(self.get_networkx_graphs(), self.y)
+                raise ValueError("Feature type is not valid: %s" % feat.type)
+
+            self.graph_features[feat_name] = X
+
+        if len(self.graph_features) == 1:
+            # if there is only one feature, its values go into X. If not, X is a set of indices
+            key = list(self.graph_features.keys())[0]
+            self.X = self.graph_features[key]
+            self.X_train = [self.X[i] for i in self.X_train]
+            self.X_test = [self.X[i] for i in self.X_test]
 
     @property
     def input_size(self):

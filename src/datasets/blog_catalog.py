@@ -21,7 +21,7 @@ class BlogCatalog(DatasetBuilder):
     def maybe_download_and_extract(self, force=False):
         super().maybe_download_and_extract(force)
         if not os.path.exists(self.get_raw_data_dir()):
-            self.download_and_extract(
+            self._download_and_extract(
                 "http://socialcomputing.asu.edu/uploads/1283153973/BlogCatalog-dataset.zip",
                 self.get_raw_data_dir())
 

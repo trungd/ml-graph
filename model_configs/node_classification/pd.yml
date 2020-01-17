@@ -1,0 +1,44 @@
+backend: pytorch
+env:
+  cora:
+    variables:
+      dataset_name:
+        #- src.datasets.gcn.Cora
+        - src.datasets.cora.Cora
+        #- src.datasets.pubmed.PubMed
+      graph_signature:
+        - distance
+model:
+  name: src.models.deep_sets.DeepSets
+  input_size: 2
+  hidden_size: 16
+  dropout: 0.2
+  deep_set:
+    dim:
+      h0_non_essential: 150
+      h0_essential: 50
+      h1_essential: 50
+    perm_op: sum
+  dense_dim: [200, 100, 50]
+dataset:
+  name: ~dataset_name
+  graph_features:
+    embedding:
+    persistence_diagram:
+      signature: ~graph_signature
+      diagrams: [h0_non_essential, h0_essential, h1_essential]
+      filtration: vertex_weight
+      transformers:
+        h0_non_essential: [upper_diagonal_transform]
+        h0_essential: [reduce_essential]
+        h1_essential: [reduce_essential]
+      reuse: true
+train:
+  num_epochs: 200
+  batch_size: 256
+  eval: [test]
+  optimizer:
+    name: adam
+    lr: 0.01
+test:
+  metrics: [acc]

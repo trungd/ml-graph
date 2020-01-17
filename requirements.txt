@@ -1,2 +1,6 @@
+torch
+dlex
+numpy
+tqdm
 grakel-dev
 networkx

@@ -1,0 +1,24 @@
+backend: sklearn
+env:
+  main:
+    variables:
+      kernel_type:
+        - shortest_path
+        - graphlet_sampling
+        - wl_subtree
+      dataset_name:
+        - MUTAG
+model:
+  name: dlex.sklearn.models.svc.SVC
+  kernel: precomputed
+dataset:
+  name: src.datasets.grakel.Grakel
+  dataset_name: ~dataset_name
+  graph_features:
+    kernel:
+      type: ~kernel_type
+  test_size: 0.1
+train:
+  cross_validation: false
+test:
+  metrics: [acc]

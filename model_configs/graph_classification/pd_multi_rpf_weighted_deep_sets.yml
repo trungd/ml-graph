@@ -1,0 +1,209 @@
+backend: pytorch
+random_seed: 42
+env:
+  default:
+    variables:
+      batch_size: 256
+      hidden_dim: 64
+      num_layers: 4
+      dropout: 0.2
+      learning_rate: 0.01
+      early_stop: 50
+  nci:
+    default: false
+    variables:
+      dataset:
+        - NCI1
+        - NCI109
+      feature_name:
+        - multi_rpf_1.2.3.4.5.6.7.8
+      signature: [rpf, rpf_lbl]
+      learning_rate: 0.05
+  dd:
+    default: false
+    variables:
+      dataset: DD
+      feature_name:
+        - multi_rpf_1.2.3.4.5.6.7.8
+      hidden_dim: [32, 64]
+      signature: [rpf, rpf_lbl]
+      num_epochs: 200
+  proteins:
+    default: false
+    variables:
+      dataset: PROTEINS
+      feature_name:
+        - multi_rpf_1.2.3.4.5.6.7.8
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
+      signature: [rpf, rpf_lbl]
+  enzymes:
+    default: false
+    variables:
+      dataset: [ENZYMES]
+      feature_name:
+        - multi_rpf_1.2.3.4.5.6.7.8
+      hidden_dim: [32, 64]
+      signature: [rpf, rpf_lbl]
+    report:
+      type: raw
+      reduce: [dropout]
+  ptc:
+    default: false
+    variables:
+      dataset:
+        - PTC_MR
+        - PTC_FR
+        - PTC_MM
+        - PTC_FM
+      feature_name:
+        - multi_rpf_1.2.3.4.5.6.7.8
+      hidden_dim: 32
+      batch_size: 512
+      num_epochs: 200
+      signature: [rpf, rpf_lbl]
+  mutag:
+    default: false
+    variables:
+      dataset: MUTAG
+      feature_name:
+        - multi_rpf_1.2.3.4.5.6.7.8
+      signature: [rpf, rpf_lbl]
+      hidden_dim: [32, 64]
+  reddit:
+    default: false
+    variables:
+      dataset:
+        - REDDIT-BINARY
+        #- REDDIT-MULTI-5K
+        #- REDDIT-MULTI-12K
+      feature_name:
+        - freq_multi_rpf_1.2.3.4.5.6.7.8
+        #- embed_rpf_1.3.5.7
+        #- embed_rpf_2.4.6.8
+        #- embed_rpf_4.8.12.16
+        #- embed_rpf_2.4.6
+        #- embed_rpf_3.6.9
+      hidden_dim: [64, 128]
+      signature: [rpf]
+      batch_size: 64
+      num_epochs: 200
+  reddit5k:
+    default: false
+    variables:
+      dataset:
+        - REDDIT-MULTI-5K
+      feature_name:
+        - freq_multi_rpf_1.2.3.4.5.6.7.8
+      hidden_dim: [64, 128]
+      signature: [rpf]
+      learning_rate: 0.05
+      batch_size: 32
+  imdb:
+    default: false
+    variables:
+      dataset:
+        - IMDB-BINARY
+        #- IMDB-MULTI
+      feature_name:
+        - multi_rpf_1.2.3.4.5.6.7.8
+      hidden_dim: [64, 128]
+      signature: rpf
+      early_stop: 100
+      num_layers: 2
+  collab:
+    default: false
+    variables:
+      dataset:
+        - COLLAB
+      feature_name:
+        #- embed_rpf_1
+        - embed_rpf_2.4.6
+        - embed_rpf_3.6.9
+        - embed_rpf_1.2.3.4.5.6.7.8
+      hidden_dim: 64
+      dense_dim: 64
+      signature: rpf
+      batch_size: 64
+    report:
+      type: raw
+      reduce: []
+  cox2:
+    default: false
+    variables:
+      dataset: COX2
+      feature_name:
+        - multi_rpf_1.2.3.4.5.6.7.8
+      signature: [rpf, rpf_lbl]
+      hidden_dim: 32
+  dhfr:
+    default: false
+    variables:
+      dataset: DHFR
+      feature_name:
+        - multi_rpf_1.2.3.4.5.6.7.8
+      signature: [rpf_lbl]
+  frank:
+    default: false
+    variables:
+      dataset:
+        - FRANKENSTEIN
+      feature_name:
+        - embed_rpf_1
+        - embed_rpf_2.4.6.8
+        - embed_rpf_1.3.5.7
+        - embed_rpf_1.2.3.4.5.6.7.8
+      hidden_dim: 32
+      dense_dim: 32
+      signature: [rpf]
+    report:
+      type: raw
+      reduce: []
+  synthetic:
+    default: false
+    variables:
+      dataset:
+        - SYNTHETIC
+      feature_name:
+        - embed_rpf_1
+        - embed_rpf_2.4.6.8
+        - embed_rpf_1.3.5.7
+        - embed_rpf_1.2.3.4.5.6.7.8
+      hidden_dim: 64
+      dense_dim: 64
+      signature: [rpf, rpf_lbl]
+    report:
+      type: raw
+      reduce: []
+model:
+  name: src.models.set_transformer.MultiWeightedDeepSets
+  hidden_dim: ~hidden_dim
+  num_layers: ~num_layers
+  dense_dim: ~hidden_dim
+  dropout: ~dropout
+dataset:
+  name: src.datasets.grakel.Grakel
+  dataset_name: ~dataset
+  graph_kernel: bottleneck_distance
+  graph_features:
+    persistence_diagram:
+      type: persistence_diagram
+      key: ~feature_name
+      filtration: vertex_weight
+      signature: ~signature
+      reuse: true
+  test_size: 0.1
+train:
+  num_epochs: 500
+  early_stop:
+    num_epochs: 50
+  batch_size: ~batch_size
+  optimizer:
+    name: adam
+    lr: ~learning_rate
+  lr_scheduler:
+    # milestones: [15, 30, 45, 60]
+    milestones: [25, 50, 75, 100, 125, 150]
+    gamma: 0.5
+  cross_validation: 10
+test:
+  metrics: [acc]

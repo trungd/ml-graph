@@ -31,6 +31,9 @@ python -m dlex.train -c <path_to_yml_config>
 
 - [Karate Club](./src/datasets/karate_club.py)
 - [BlogCatalog](./src/datasets/blog_catalog.py)
+- [Cora](./src/datasets/cora.py)
+- PubMed
+- CiteSeer
 
 ### Multiple graphs
 
