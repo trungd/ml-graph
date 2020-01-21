@@ -5,8 +5,9 @@ env:
     variables:
       batch_size: 256
       hidden_dim: 64
-      num_layers: 4
-      dropout: 0.2
+      num_encoder_layers: 4
+      num_decoder_layers: 4
+      dropout: 0.0
       learning_rate: 0.01
       num_epochs: 500
   nci:
@@ -14,9 +15,9 @@ env:
     variables:
       dataset:
         - NCI1
-        #- NCI109
+        - NCI109
       feature_name:
-        #- multi_rpf_1.2.3.4.5.6.7.8
+        - multi_rpf_1.2.3.4.5.6.7.8
         #- multi_rpf_1
         #- multi_rpf_1.2
         #- multi_rpf_1.2.3
@@ -25,16 +26,17 @@ env:
         #- multi_rpf_1.2.3.4.5.6
         #- multi_rpf_1.2.3.4.5.6.7
         #- multi_rpf_1.2.3.4.5.6.7.8
-        - multi_rpf_1.2.3.4.5.6.7.8.9
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10.11
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
-      signature: [rpf_lbl]
+        #- multi_rpf_1.2.3.4.5.6.7.8.9
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
+      signature: [rpf, rpf_lbl]
       num_epochs: 200
+      learning_rate: 0.01
   dd:
     default: false
     variables:
@@ -51,6 +53,7 @@ env:
       feature_name:
         - multi_rpf_1.2.3.4.5.6.7.8
       signature: [rpf, rpf_lbl]
+      num_epochs: 200
   enzymes:
     default: false
     variables:
@@ -63,18 +66,31 @@ env:
     default: false
     variables:
       dataset:
-        - PTC_MR
+        #- PTC_MR
         - PTC_FR
-        - PTC_MM
-        - PTC_FM
+        #- PTC_MM
+        #- PTC_FM
       feature_name:
+        #- multi_rpf_1.3.5.7
+        #- multi_rpf_1
+        #- multi_rpf_1.2
+        #- multi_rpf_1.2.3
+        #- multi_rpf_1.2.3.4
+        #- multi_rpf_1.2.3.4.5
+        #- multi_rpf_1.2.3.4.5.6
+        #- multi_rpf_1.2.3.4.5.6.7
         - multi_rpf_1.2.3.4.5.6.7.8
-      hidden_dim: 16
-      signature: [rpf, rpf_lbl]
+        #- multi_rpf_1.2.3.4.5.6.7.8.9
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
+      hidden_dim: 32
+      signature: [rpf_lbl]
       batch_size: 512
-      num_epochs: 200
-      num_layers: 2
-      dropout: 0.5
   mutag:
     default: false
     variables:
@@ -101,8 +117,8 @@ env:
       hidden_dim: [64, 128]
       signature: [rpf]
       # learning_rate: 0.05
-      batch_size: 64
-      num_epochs: 250
+      batch_size: 128
+      num_epochs: 200
   reddit5k:
     default: false
     variables:
@@ -155,23 +171,18 @@ env:
         - COLLAB
       feature_name:
         - multi_rpf_1.2.3.4.5.6.7.8
-      hidden_dim: [64, 128]
+      hidden_dim: [32, 64]
       signature: rpf
-  cox2:
+  cox2_dhfr:
     default: false
     variables:
-      dataset: COX2
+      dataset: [COX2, DHFR]
       feature_name:
         - multi_rpf_1.2.3.4.5.6.7.8
       signature: [rpf, rpf_lbl]
       hidden_dim: 32
-  dhfr:
-    default: false
-    variables:
-      dataset: DHFR
-      feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
-      signature: [rpf, rpf_lbl]
+      num_epochs: 500
+      batch_size: 768
   frank:
     default: false
     variables:
@@ -207,9 +218,11 @@ env:
 model:
   name: src.models.set_transformer.MultiDeepSets
   hidden_dim: ~hidden_dim
-  num_layers: ~num_layers
+  num_encoder_layers: ~num_encoder_layers
+  num_decoder_layers: ~num_decoder_layers
   dense_dim: ~hidden_dim
   dropout: ~dropout
+  batch_norm: true
 dataset:
   name: src.datasets.grakel.Grakel
   dataset_name: ~dataset
@@ -226,7 +239,6 @@ train:
   num_epochs: ~num_epochs
   early_stop:
     num_epochs: 50
-    min_diff: 0.0001
   batch_size: ~batch_size
   optimizer:
     name: adam
@@ -236,5 +248,6 @@ train:
     milestones: [25, 50, 75, 100, 125, 150]
     gamma: 0.5
   cross_validation: 10
+  save_every: 1000e
 test:
   metrics: [acc]

@@ -1,6 +1,7 @@
 import os
 from typing import Dict, Union
 
+import networkx as nx
 import numpy as np
 import torch
 from comptopo import pd_transform
@@ -22,25 +23,57 @@ DATASETS_NO_NODE_LIST = ['REDDIT-MULTI-5K', 'REDDIT-MULTI-12K', 'COLLAB']
 class Grakel(DatasetBuilder):
     def __init__(self, params: AttrDict):
         super().__init__(params)
-        
+
+        self._graphs = None
+        self._labels = None
+        self._networkx_graphs = None
+        self._sklearn_dataset = None
+
+    def load_dataset(self):
         dataset = datasets.fetch_dataset(
-            params.dataset.dataset_name,
+            self.configs.dataset_name,
             verbose=False,
-            data_home=".",
-            download_if_missing=True)
-        G, y = dataset.data, dataset.target
+            data_home=self.get_raw_data_dir(),
+            download_if_missing=True
+        )
+        logger.info("Dataset loaded.")
+        G = dataset.data
+        y = dataset.target
 
         if self.configs.dataset_name in DATASETS_NO_NODE_LIST:
-            logger.debug("Dataset size: %d", len(y))
-            logger.debug("Average node count: %.2f",
-                         sum([len(set([v[0] for v in g[0]]) | set([v[1] for v in g[1]])) for g in G]) / len(G))
-            logger.debug("Average edge count: %.2f", sum([len(g[0]) for g in G]) / len(G))
+            logger.info("Dataset size: %d", len(y))
+            logger.info("Average node count: %.2f",
+                        sum([len(set([v[0] for v in g[0]]) | set([v[1] for v in g[1]])) for g in G]) / len(G))
+            logger.info("Average edge count: %.2f", sum([len(g[0]) for g in G]) / len(G))
         else:
-            logger.debug("Dataset size: %d", len(y))
-            logger.debug("Average node count: %.2f", sum([len(g[1]) for g in G]) / len(G))
-            logger.debug("Average edge count: %.2f", sum([len(g[0]) for g in G]) / len(G))
-        self.G = G
-        self.y = y
+            logger.info("Dataset size: %d", len(y))
+            logger.info("Average node count: %.2f", sum([len(g[1]) for g in G]) / len(G))
+            logger.info("Average edge count: %.2f", sum([len(g[0]) for g in G]) / len(G))
+
+        return G, y
+
+    @property
+    def graphs(self):
+        if not self._graphs:
+            logger.info(f"Loading dataset {self.configs.dataset_name}...")
+            self._graphs, self._labels = self.load_dataset()
+        return self._graphs
+
+    @property
+    def labels(self):
+        filepath = os.path.join(self.get_processed_data_dir(), self.configs.dataset_name + "_labels.txt")
+        if not os.path.exists(filepath):
+            if self._labels is None:
+                self._graphs, self._labels = self.load_dataset()
+            logger.info(f"Writing labels from {filepath}...")
+            with open(filepath, "w") as f:
+                f.write("\n".join([str(s) for s in self._labels]))
+        else:
+            if self._labels is None:
+                with open(filepath, "r") as f:
+                    logger.info(f"Loading labels from {filepath}...")
+                    self._labels = [int(x) for x in f.read().split('\n') if x != ""]
+        return self._labels
 
     def get_working_dir(self):
         return os.path.join(super().get_working_dir(), self.configs.dataset_name)
@@ -51,42 +84,96 @@ class Grakel(DatasetBuilder):
     def maybe_preprocess(self, force=False):
         super().maybe_preprocess(force)
 
-    def get_sklearn_wrapper(self, mode: str):
+    def get_sklearn_wrapper(self, mode: str = None):
         return SklearnGrakelDataset(self)
 
     def get_pytorch_wrapper(self, mode: str):
         return PytorchGrakelDataset(self, mode)
 
+    @property
+    def networkx_graphs(self):
+        if self._networkx_graphs:
+            return self._networkx_graphs
+
+        if self.configs.dataset_name in DATASETS_NO_NODE_LIST:
+            self._networkx_graphs = [get_networkx_graph(
+                {v: 0 for v in set([v[0] for v in g[0]]) | set([v[1] for v in g[1]])},
+                g[0],
+            ) for g in self.graphs]
+        else:
+            self._networkx_graphs = [get_networkx_graph(g[1], g[0], g[2]) for g in self.graphs]
+        return self._networkx_graphs
+
+    @property
+    def sklearn_dataset(self):
+        if not self._sklearn_dataset:
+            self._sklearn_dataset = self.get_sklearn_wrapper()
+        return self._sklearn_dataset
+
 
 class SklearnGrakelDataset(MultiGraphsDataset):
     def __init__(self, builder):
         super().__init__(builder)
-        self.G = builder.G
-        self.y = builder.y
         self.extract_features()
+        self.stats()
+        self._num_node_labels = None
+
+    @property
+    def graphs(self):
+        return self.builder.graphs
+
+    @property
+    def labels(self):
+        return self.builder.labels
+
+    @property
+    def num_node_labels(self):
+        if not self._num_node_labels:
+            graphs = self.networkx_graphs
+            node_labels = set.union(*[set(nx.get_node_attributes(g, "label").values()) for g in graphs])
+            logger.debug("Node labels: %s", str(node_labels))
+            self._num_node_labels = len(node_labels)
+        return self._num_node_labels
         
     @property
     def num_classes(self):
-        return len(set(self.y))
+        return len(set(self.labels))
 
-    def get_networkx_graphs(self):
-        if self.configs.dataset_name in DATASETS_NO_NODE_LIST:
-            return [get_networkx_graph(
-                {v: 0 for v in set([v[0] for v in g[0]]) | set([v[1] for v in g[1]])},
-                g[0],
-            ) for g in self.G]
-        else:
-            return [get_networkx_graph(g[1], g[0], g[2]) for g in self.G]
+    def stats(self):
+        pass
+
+    @property
+    def networkx_graphs(self):
+        return self.builder.networkx_graphs
 
 
 class PytorchGrakelDataset(Dataset):
     def __init__(self, builder, mode: str):
         super().__init__(builder, mode)
-        self.sklearn_dataset = SklearnGrakelDataset(builder)
+        self.sklearn_dataset = builder.sklearn_dataset
         X = self.sklearn_dataset.X_train if mode == "train" else self.sklearn_dataset.X_test
         y = self.sklearn_dataset.y_train if mode == "train" else self.sklearn_dataset.y_test
+
         if isinstance(X, dict):
             X = [{key: X[key][i] for key in X} for i in range(len(y))]
+
+        for feat_name in self.sklearn_dataset.graph_features:
+            if feat_name == "persistence_diagram":
+                cfg = self.params.dataset.graph_features.persistence_diagram
+                keys = cfg.keys if type(cfg.keys) == list else [cfg.key]
+
+                logger.info("Trimming persistence diagrams to maximum length of %d", cfg.max_length)
+                if cfg.max_length:
+                    for x in X:
+                        x.trim(cfg.max_length)
+
+                # weights = self.sklearn_dataset._get_vertex_weights(cfg.signature)
+                X = [{key: x.get(key) for key in keys} for x in X]
+
+                if cfg.transformers:
+                    for key in cfg.transformers:
+                        for transformer in cfg.transformers[key]:
+                            X[key] = [pd_transform(transformer, np.array(x[key])).tolist() for x in X]
 
         if -1 in y:  # [-1, 1] -> [0, 1]
             y = [i if i != -1 else 0 for i in y]
@@ -123,15 +210,11 @@ class PytorchGrakelDataset(Dataset):
                 cfg = self.params.dataset.graph_features.persistence_diagram
                 keys = cfg.keys if type(cfg.keys) == list else [cfg.key]
                 X = {key: [b[0][key] for b in batch] for key in keys}
-                if cfg.transformers:
-                    for key in cfg.transformers:
-                        for transformer in cfg.transformers[key]:
-                            X[key] = [pd_transform(transformer, np.array(dgm)).tolist() for dgm in X[key]]
-                for key in X:
+                for key in keys:
                     if key == "persistence_image":
                         X[key] = maybe_cuda(torch.FloatTensor(X[key]))
                     else:
-                        X[key] = pad_sequence(X[key], 0., output_tensor=True)
+                        X[key] = pad_sequence(X[key], 0., output_tensor=True, dim=3)
 
                 if len(X) == 1:
                     X = X[list(X.keys())[0]]

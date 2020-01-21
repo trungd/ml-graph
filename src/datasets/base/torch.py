@@ -34,5 +34,6 @@ class MultiGraphsDataset(Dataset):
     def __init__(self, builder, mode: str):
         super().__init__(builder, mode)
 
-    def get_networkx_graphs(self):
+    @property
+    def networkx_graphs(self):
         raise NotImplementedError

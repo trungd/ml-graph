@@ -6,16 +6,17 @@ env:
       batch_size: 256
       hidden_dim: 64
       num_layers: 4
-      attn_num_layers: 2
+      attn_num_layers: 1
       dropout: 0.2
       learning_rate: 0.01
-      num_heads: 8
+      num_heads: 4
+      num_epochs: 200
   nci:
     default: false
     variables:
       dataset:
         - NCI1
-        #- NCI109
+        - NCI109
       feature_name:
         - multi_rpf_1.2.3.4.5.6.7.8
         #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
@@ -38,23 +39,26 @@ env:
     variables:
       dataset: [PROTEINS]
       feature_name:
-        - multi_rpf_1
-        - multi_rpf_1.2
-        - multi_rpf_1.2.3
-        - multi_rpf_1.2.3.4
-        - multi_rpf_1.2.3.4.5
-        - multi_rpf_1.2.3.4.5.6
-        - multi_rpf_1.2.3.4.5.6.7
+        #- multi_rpf_1
+        #- multi_rpf_1.2
+        #- multi_rpf_1.2.3
+        #- multi_rpf_1.2.3.4
+        #- multi_rpf_1.2.3.4.5
+        #- multi_rpf_1.2.3.4.5.6
+        #- multi_rpf_1.2.3.4.5.6.7
         - multi_rpf_1.2.3.4.5.6.7.8
-        - multi_rpf_1.2.3.4.5.6.7.8.9
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10.11
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12
+        #- multi_rpf_1.2.3.4.5.6.7.8.9
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11
+        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12
         #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13
         #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14
         #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15
         #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
-      signature: [rpf_lbl]
+      signature: [rpf, rpf_lbl]
+      attn_num_layers: 2
+      num_heads: 4
+      batch_size: 512
   enzymes:
     default: false
     variables:
@@ -209,6 +213,7 @@ model:
     num_layers: ~attn_num_layers
   dense_dim: ~hidden_dim
   dropout: ~dropout
+  batch_norm: false
 dataset:
   name: src.datasets.grakel.Grakel
   dataset_name: ~dataset
@@ -222,7 +227,7 @@ dataset:
       reuse: true
   test_size: 0.1
 train:
-  num_epochs: 500
+  num_epochs: ~num_epochs
   early_stop:
     num_epochs: 50
   batch_size: ~batch_size
@@ -234,5 +239,6 @@ train:
     milestones: [25, 50, 75, 100, 125, 150]
     gamma: 0.5
   cross_validation: 10
+  save_every: 1000e
 test:
   metrics: [acc]

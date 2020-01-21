@@ -70,6 +70,9 @@ def assign_vertex_weight(graph: nx.Graph, func='degree', weights=None, **kwargs)
         - degree: vertex degree
         - hks: heat kernel signature
         - distance: distance to a source node (source must be provided in kwargs)
+        - rpf: return probability
+        - rpf_rank: ranking of return probability over all nodes
+        - ns: neighbor size
     """
     if weights is not None:
         for n in graph.nodes:
@@ -92,8 +95,27 @@ def assign_vertex_weight(graph: nx.Graph, func='degree', weights=None, **kwargs)
         ret = np.square(eigen_vectors).dot(np.diag(np.exp(-t * eigen_values))).sum(axis=1)
         for i, n in enumerate(nodes):
             graph.nodes[n]['weight'] = ret[i]
+    elif func == 'ns':
+        K = kwargs.get('K', 20)
+        dist = nx.all_pairs_shortest_path_length(graph, cutoff=K)
+        for n, ds in dist:
+            ds = np.array(list(ds.values()))
+            graph.nodes[n]['weight'] = [np.count_nonzero(ds <= k) / len(graph.nodes) for k in range(K)]
     elif func == 'rpf' or func == 'norm_rpf':
-        ret = return_probability_signature(graph, 20, normalize=func[:5] == 'norm_')
+        ret = return_probability_signature(graph, kwargs.get('K', 20), normalize=func[:5] == 'norm_')
+        for n in graph.nodes:
+            graph.nodes[n]['weight'] = ret[n]
+    elif func == 'rpf' or func == 'norm_rpf':
+        ret = return_probability_signature(graph, kwargs.get('K', 20), normalize=func[:5] == 'norm_')
+        for n in graph.nodes:
+            graph.nodes[n]['weight'] = ret[n]
+    elif func == 'rpf_rank':
+        K = kwargs.get('K', 20)
+        ret = return_probability_signature(graph, K)
+        for k in range(K):
+            rank = sorted([(ret[n][k], n) for n in graph.nodes])
+            for i, (_, n) in enumerate(rank):
+                ret[n][k] = i / graph.number_of_nodes()
         for n in graph.nodes:
             graph.nodes[n]['weight'] = ret[n]
     elif func == 'non-rpf':
@@ -102,8 +124,9 @@ def assign_vertex_weight(graph: nx.Graph, func='degree', weights=None, **kwargs)
             graph.nodes[n]['weight'] = [1 - r for r in ret[n]]
     elif func == 'rpf_lbl' or func == 'norm_rpf_lbl':
         ret = return_probability_signature(graph, 20, normalize=func[:5] == 'norm_')
+        assert "num_labels" in kwargs
         for n in graph.nodes:
-            graph.nodes[n]['weight'] = [r + graph.nodes[n]['label'] for r in ret[n]]
+            graph.nodes[n]['weight'] = [(r + graph.nodes[n]['label']) / kwargs['num_labels'] for r in ret[n]]
     else:
         raise ValueError("%s is not supported." % func)
     
