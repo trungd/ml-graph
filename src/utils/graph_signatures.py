@@ -105,10 +105,6 @@ def assign_vertex_weight(graph: nx.Graph, func='degree', weights=None, **kwargs)
         ret = return_probability_signature(graph, kwargs.get('K', 20), normalize=func[:5] == 'norm_')
         for n in graph.nodes:
             graph.nodes[n]['weight'] = ret[n]
-    elif func == 'rpf' or func == 'norm_rpf':
-        ret = return_probability_signature(graph, kwargs.get('K', 20), normalize=func[:5] == 'norm_')
-        for n in graph.nodes:
-            graph.nodes[n]['weight'] = ret[n]
     elif func == 'rpf_rank':
         K = kwargs.get('K', 20)
         ret = return_probability_signature(graph, K)

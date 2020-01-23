@@ -18,8 +18,8 @@ env:
         - NCI1
         - NCI109
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
+        - multi_1.2.3.4.5.6.7.8
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
       hidden_dim: 64
       signature: [rpf, rpf_lbl]
       #learning_rate: 0.05
@@ -31,7 +31,7 @@ env:
     variables:
       dataset: [DD]
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       signature: [rpf, rpf_lbl]
       batch_size: 64
   proteins:
@@ -39,22 +39,22 @@ env:
     variables:
       dataset: [PROTEINS]
       feature_name:
-        #- multi_rpf_1
-        #- multi_rpf_1.2
-        #- multi_rpf_1.2.3
-        #- multi_rpf_1.2.3.4
-        #- multi_rpf_1.2.3.4.5
-        #- multi_rpf_1.2.3.4.5.6
-        #- multi_rpf_1.2.3.4.5.6.7
-        - multi_rpf_1.2.3.4.5.6.7.8
-        #- multi_rpf_1.2.3.4.5.6.7.8.9
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
+        #- multi_1
+        #- multi_1.2
+        #- multi_1.2.3
+        #- multi_1.2.3.4
+        #- multi_1.2.3.4.5
+        #- multi_1.2.3.4.5.6
+        #- multi_1.2.3.4.5.6.7
+        - multi_1.2.3.4.5.6.7.8
+        #- multi_1.2.3.4.5.6.7.8.9
+        #- multi_1.2.3.4.5.6.7.8.9.10
+        #- multi_1.2.3.4.5.6.7.8.9.10.11
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
       signature: [rpf, rpf_lbl]
       attn_num_layers: 2
       num_heads: 4
@@ -64,7 +64,7 @@ env:
     variables:
       dataset: [ENZYMES]
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       hidden_dim: [32, 64]
       signature: [rpf, rpf_lbl]
     report:
@@ -79,11 +79,11 @@ env:
         - PTC_MM
         - PTC_FM
       feature_name:
-        #- multi_rpf_1
-        - multi_rpf_1.2.3.4.5.6.7.8
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
-        #- multi_rpf_2.4.6
-        #- multi_rpf_3.6.9
+        #- multi_1
+        - multi_1.2.3.4.5.6.7.8
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
+        #- multi_2.4.6
+        #- multi_3.6.9
       hidden_dim: 32
       num_epochs: 200
       batch_size: 512
@@ -93,7 +93,7 @@ env:
     variables:
       dataset: [MUTAG]
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       hidden_dim: 32
       signature: [rpf, rpf_lbl]
   reddit:
@@ -104,7 +104,7 @@ env:
         #- REDDIT-MULTI-5K
         #- REDDIT-MULTI-12K
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       hidden_dim: [64, 128]
       signature: [rpf]
       batch_size: 64
@@ -116,7 +116,7 @@ env:
         - REDDIT-MULTI-5K
         #- REDDIT-MULTI-12K
       feature_name:
-        - freq_multi_rpf_1.2.3.4.5.6.7.8
+        - freq_multi_1.2.3.4.5.6.7.8
       hidden_dim: [64, 128]
       signature: [rpf]
       batch_size: 32
@@ -129,7 +129,7 @@ env:
         - IMDB-BINARY
         #- IMDB-MULTI
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       hidden_dim: [64, 128]
       signature: rpf
   collab:
@@ -137,7 +137,7 @@ env:
     variables:
       dataset: COLLAB
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       hidden_dim: [64, 128]
       signature: rpf
       batch_size: 64
@@ -146,22 +146,22 @@ env:
     variables:
       dataset: COX2
       feature_name:
-        - multi_rpf_1
-        - multi_rpf_1.2
-        - multi_rpf_1.2.3
-        - multi_rpf_1.2.3.4
-        - multi_rpf_1.2.3.4.5
-        - multi_rpf_1.2.3.4.5.6
-        - multi_rpf_1.2.3.4.5.6.7
-        - multi_rpf_1.2.3.4.5.6.7.8
-        - multi_rpf_1.2.3.4.5.6.7.8.9
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10.11
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15
-        - multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
+        - multi_1
+        - multi_1.2
+        - multi_1.2.3
+        - multi_1.2.3.4
+        - multi_1.2.3.4.5
+        - multi_1.2.3.4.5.6
+        - multi_1.2.3.4.5.6.7
+        - multi_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8.9
+        - multi_1.2.3.4.5.6.7.8.9.10
+        - multi_1.2.3.4.5.6.7.8.9.10.11
+        - multi_1.2.3.4.5.6.7.8.9.10.11.12
+        - multi_1.2.3.4.5.6.7.8.9.10.11.12.13
+        - multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14
+        - multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15
+        - multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
       signature: [rpf_lbl]
       hidden_dim: 64
   dhfr:
@@ -169,7 +169,7 @@ env:
     variables:
       dataset: [DHFR]
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       signature: [rpf, rpf_lbl]
   frank:
     default: false
@@ -177,10 +177,10 @@ env:
       dataset:
         - FRANKENSTEIN
       feature_name:
-        - multi_rpf_1
-        - multi_rpf_2.4.6.8
-        - multi_rpf_1.3.5.7
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1
+        - multi_2.4.6.8
+        - multi_1.3.5.7
+        - multi_1.2.3.4.5.6.7.8
       hidden_dim: 32
       dense_dim: 32
       signature: [rpf]
@@ -193,10 +193,10 @@ env:
       dataset:
         - SYNTHETIC
       feature_name:
-        - multi_rpf_1
-        - multi_rpf_2.4.6.8
-        - multi_rpf_1.3.5.7
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1
+        - multi_2.4.6.8
+        - multi_1.3.5.7
+        - multi_1.2.3.4.5.6.7.8
       hidden_dim: 64
       dense_dim: 64
       signature: [rpf, rpf_lbl]

@@ -10,6 +10,7 @@ env:
       dropout: 0.0
       learning_rate: 0.01
       num_epochs: 500
+      batch_norm: true
   nci:
     default: false
     variables:
@@ -17,23 +18,23 @@ env:
         - NCI1
         - NCI109
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
-        #- multi_rpf_1
-        #- multi_rpf_1.2
-        #- multi_rpf_1.2.3
-        #- multi_rpf_1.2.3.4
-        #- multi_rpf_1.2.3.4.5
-        #- multi_rpf_1.2.3.4.5.6
-        #- multi_rpf_1.2.3.4.5.6.7
-        #- multi_rpf_1.2.3.4.5.6.7.8
-        #- multi_rpf_1.2.3.4.5.6.7.8.9
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
+        - multi_1.2.3.4.5.6.7.8
+        #- multi_1
+        #- multi_1.2
+        #- multi_1.2.3
+        #- multi_1.2.3.4
+        #- multi_1.2.3.4.5
+        #- multi_1.2.3.4.5.6
+        #- multi_1.2.3.4.5.6.7
+        #- multi_1.2.3.4.5.6.7.8
+        #- multi_1.2.3.4.5.6.7.8.9
+        #- multi_1.2.3.4.5.6.7.8.9.10
+        #- multi_1.2.3.4.5.6.7.8.9.10.11
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
       signature: [rpf, rpf_lbl]
       num_epochs: 200
       learning_rate: 0.01
@@ -42,7 +43,7 @@ env:
     variables:
       dataset: DD
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       hidden_dim: [32, 64]
       signature: [rpf, rpf_lbl]
       num_epochs: 200
@@ -51,7 +52,7 @@ env:
     variables:
       dataset: PROTEINS
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       signature: [rpf, rpf_lbl]
       num_epochs: 200
   enzymes:
@@ -59,7 +60,7 @@ env:
     variables:
       dataset: ENZYMES
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       hidden_dim: [32, 64]
       signature: [rpf, rpf_lbl]
   ptc:
@@ -71,32 +72,32 @@ env:
         #- PTC_MM
         #- PTC_FM
       feature_name:
-        #- multi_rpf_1.3.5.7
-        #- multi_rpf_1
-        #- multi_rpf_1.2
-        #- multi_rpf_1.2.3
-        #- multi_rpf_1.2.3.4
-        #- multi_rpf_1.2.3.4.5
-        #- multi_rpf_1.2.3.4.5.6
-        #- multi_rpf_1.2.3.4.5.6.7
-        - multi_rpf_1.2.3.4.5.6.7.8
-        #- multi_rpf_1.2.3.4.5.6.7.8.9
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
+        #- multi_1.3.5.7
+        #- multi_1
+        #- multi_1.2
+        #- multi_1.2.3
+        #- multi_1.2.3.4
+        #- multi_1.2.3.4.5
+        #- multi_1.2.3.4.5.6
+        #- multi_1.2.3.4.5.6.7
+        - multi_non_embed_1.2.3.4.5.6.7.8
+        #- multi_1.2.3.4.5.6.7.8.9
+        #- multi_1.2.3.4.5.6.7.8.9.10
+        #- multi_1.2.3.4.5.6.7.8.9.10.11
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15
+        #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
       hidden_dim: 32
-      signature: [rpf_lbl]
+      signature: [rpf]
       batch_size: 512
   mutag:
     default: false
     variables:
       dataset: MUTAG
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       signature: [rpf, rpf_lbl]
       hidden_dim: 16
       num_layers: 1
@@ -108,8 +109,8 @@ env:
         #- REDDIT-MULTI-5K
         #- REDDIT-MULTI-12K
       feature_name:
-        #- multi_rpf_1.2.3.4.5.6.7.8
-        - freq_multi_rpf_1.3.5.7
+        #- multi_1.2.3.4.5.6.7.8
+        - freq_multi_1.3.5.7
         #- embed_rpf_2.4.6.8
         #- embed_rpf_4.8.12.16
         #- embed_rpf_2.4.6
@@ -125,7 +126,7 @@ env:
       dataset:
         - REDDIT-MULTI-5K
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       hidden_dim: [64, 128]
       signature: [rpf]
       learning_rate: 0.05
@@ -137,8 +138,8 @@ env:
       dataset:
         - REDDIT-MULTI-12K
       feature_name:
-        - freq_multi_rpf_1.2.3.4.5.6.7.8
-        - freq_multi_rpf_1.3.5.7
+        - freq_multi_1.2.3.4.5.6.7.8
+        - freq_multi_1.3.5.7
       hidden_dim: 128
       signature: [rpf]
       learning_rate: 0.1
@@ -151,18 +152,18 @@ env:
         #- IMDB-BINARY
         - IMDB-MULTI
       feature_name:
-        #- multi_0_rpf_1
-        #- multi_0_rpf_1.2.3.4.5.6.7.8
-        - multi_0_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
-        #- freq_multi_rpf_1.3.5.7
-        #- freq_multi_rpf_1.3.5.7.9.11.13.15
+        #- multi_0_1
+        #- multi_0_1.2.3.4.5.6.7.8
+        - freq_multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
+        #- freq_multi_1.3.5.7
+        #- freq_multi_1.3.5.7.9.11.13.15
         #- embed_rpf_1.3.5.7
         #- embed_rpf_2.4.6.8
         #- embed_rpf_1.2.3.4.5.6.7.8
       hidden_dim: 64
-      num_layers: 4
-      signature: non-rpf
-      num_epochs: 150
+      signature: [rpf, ns]
+      num_epochs: 200
+      batch_size: 256
       learning_rate: 0.1
   collab:
     default: false
@@ -170,7 +171,7 @@ env:
       dataset:
         - COLLAB
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       hidden_dim: [32, 64]
       signature: rpf
   cox2_dhfr:
@@ -178,7 +179,7 @@ env:
     variables:
       dataset: [COX2, DHFR]
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       signature: [rpf, rpf_lbl]
       hidden_dim: 32
       num_epochs: 500
@@ -233,8 +234,9 @@ dataset:
       key: ~feature_name
       filtration: vertex_weight
       signature: ~signature
-      reuse: true
+  reuse: true
   test_size: 0.1
+  batch_norm: ~batch_norm
 train:
   num_epochs: ~num_epochs
   early_stop:

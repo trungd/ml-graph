@@ -141,11 +141,11 @@ class MultiDeepSets(ClassificationModel):
         self.enc = linear_layers(
             [dim_input] + [cfg.hidden_dim] * params.model.num_encoder_layers,
             dropout=cfg.dropout,
-            batch_norm=cfg.batch_norm)
+            norm=nn.BatchNorm1d if cfg.batch_norm else nn.LayerNorm)
         self.emb_enc = nn.Linear(dim_input - 2, dim_input - 2)
         self.dec = linear_layers(
             [cfg.hidden_dim + dim_input - 2] + [cfg.dense_dim] * (cfg.num_decoder_layers - 1) + [dataset.num_classes],
-            batch_norm=cfg.batch_norm,
+            norm=nn.BatchNorm1d if cfg.batch_norm else nn.LayerNorm,
             dropout=cfg.dropout)
         self.dropout = nn.Dropout(params.model.dropout)
 
@@ -232,10 +232,13 @@ class MultiWeightedDeepSets(ClassificationModel):
         dim_input = 3 + 2 if self.has_pd_embedding else 2
         dim_embed = 3 if self.has_pd_embedding else 0
 
-        self.enc = linear_layers(
-            [dim_input] + [cfg.hidden_dim] * (params.model.num_encoder_layers - 1) + [cfg.hidden_dim - dim_embed],
+        self.enc = nn.ModuleList([linear_layers(
+            [dim_input] +
+            [cfg.hidden_dim] * (params.model.num_encoder_layers - 1) +
+            [(cfg.hidden_dim - dim_embed)],
             norm=nn.BatchNorm1d if cfg.batch_norm else nn.LayerNorm,
-            dropout=cfg.dropout)
+            dropout=cfg.dropout) for _ in range(self.num_sets if self.configs.multi_encoder else 1)])
+
         # self.sum_enc = linear_layers([cfg.hidden_dim] * 3, batch_norm=False)
         # self.emb_enc = nn.Linear(dim_input - 2, dim_input - 2)
 
@@ -250,18 +253,20 @@ class MultiWeightedDeepSets(ClassificationModel):
             [cfg.hidden_dim] + [cfg.dense_dim] * (cfg.num_decoder_layers - 1) + [dataset.num_classes],
             norm=nn.BatchNorm1d,
             dropout=cfg.dropout)
-        self.dropout = nn.Dropout(params.model.dropout)
 
     def forward(self, batch):
         X, X_len = batch.X
         if self.has_freq:
             X, freq = X[:, :, :, :-1], X[:, :, :, -1]
 
-        if self.configs.batch_norm:
-            X_enc = self.dropout(self.enc(X.reshape([-1, X.shape[3]])))
-            X_enc = X_enc.reshape(list(X.shape[:-1]) + [-1])
+        if self.configs.multi_encoder:
+            X_enc = torch.stack([self.enc[i](X[:, i, :, :]) for i in range(self.num_sets)], dim=-3)
         else:
-            X_enc = self.dropout(self.enc(X))
+            if self.configs.batch_norm:
+                X_enc = self.enc(X.reshape([-1, X.shape[3]]))
+                X_enc = X_enc.reshape(list(X.shape[:-1]) + [-1])
+            else:
+                X_enc = self.enc[0](X)
 
         X_emb = X[:, :, :, :-2]
         X = torch.cat([X_emb, X_enc], -1)
@@ -281,8 +286,7 @@ class MultiWeightedDeepSets(ClassificationModel):
             X = X.sum(-2)
             X = X * torch.softmax(self.W2, -1).unsqueeze(0).repeat([len(X), 1]).unsqueeze(-1)
             X = X.sum(-2)
-
-        X = self.dropout(self.dec(X))
+        X = self.dec(X)
         return X
 
 

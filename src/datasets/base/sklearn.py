@@ -187,9 +187,10 @@ class MultiGraphsDataset(SklearnDataset):
             with open(pkl_filepath, "wb") as f:
                 pickle.dump(dgms, f)
 
-        logger.info("Persistence diagrams loaded.")
-        logger.info("Average size: %.2f", np.mean([np.mean([len(d) for d in ds.diagrams]) for ds in dgms]))
-        logger.info("Max size: %d", np.max([np.max([len(d) for d in ds.diagrams]) for ds in dgms]))
+        logger.info("Persistence diagrams loaded: avg size: %.2f, max size: %d" % (
+            np.mean([np.mean([len(d) for d in ds.diagrams]) for ds in dgms]),
+            np.max([np.max([len(d) for d in ds.diagrams]) for ds in dgms])
+        ))
 
         for d in dgms:
             d.normalize()

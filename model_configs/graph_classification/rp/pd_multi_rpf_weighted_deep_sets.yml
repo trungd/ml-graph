@@ -1,5 +1,5 @@
 backend: pytorch
-random_seed: 42
+random_seed: 0
 env:
   default:
     variables:
@@ -17,8 +17,8 @@ env:
     variables:
       dataset: MUTAG
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
-      signature: [rpf_rank]
+        - multi_1.2.3.4.5.6.7.8
+      signature: [rpf]
       hidden_dim: 32
       num_epochs: 200
   nci:
@@ -28,15 +28,18 @@ env:
         - NCI1
         - NCI109
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
-      signature: [ns]
+        - freq_multi_1
+        - freq_multi_1.2.3.4.5.6.7.8
+        - freq_multi_1.3.5.7.9.11.13.15
+      si:qgnature: [rpf, ns]
+      batch_norm: false
       num_epochs: 200
   dd:
     default: false
     variables:
       dataset: DD
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       hidden_dim: [32, 64]
       signature: [rpf, rpf_lbl]
       num_epochs: 200
@@ -45,18 +48,22 @@ env:
     variables:
       dataset: PROTEINS
       feature_name:
-        #- multi_rpf_1.2.3.4
-        - multi_rpf_1.2.3.4.5.6.7.8
-        #- multi_rpf_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
-      signature: [rpf, rpf_lbl]
-      hidden_dim: 64
+        - multi_1.3.5.7.9.11.13.15
+        - multi_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
+      signature: [rpf, ns]
+      hidden_dim: 32
       num_epochs: 200
+      batch_size: 1024
+      batch_norm: false
+      num_encoder_layers: 2
+      num_decoder_layers: 2
   enzymes:
     default: false
     variables:
       dataset: [ENZYMES]
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       hidden_dim: [32, 64]
       batch_size: 768
       signature: [rpf, rpf_lbl]
@@ -70,42 +77,46 @@ env:
         - PTC_MM
         - PTC_FM
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
-      hidden_dim: 32
+        #- multi_1
+        - multi_1.2.3.4.5.6.7.8
+      hidden_dim: [32, 64]
       batch_size: 512
-      dropout: 0.0
-      signature: [rpf, rpf_lbl]
+      dropout: [0.0, 0.5]
+      batch_norm: true
+      signature: [rpf, rpf_label]
+      learning_rate: 0.01
+      num_encoder_layers: 2
+      num_decoder_layers: 2
   reddit:
     default: false
     variables:
       dataset:
         - REDDIT-BINARY
-        #- REDDIT-MULTI-5K
-        #- REDDIT-MULTI-12K
       feature_name:
-        - freq_multi_rpf_1.2.3.4.5.6.7.8
+        - freq_multi_1.2.3.4.5.6.7.8
         #- embed_rpf_1.3.5.7
         #- embed_rpf_2.4.6.8
         #- embed_rpf_4.8.12.16
         #- embed_rpf_2.4.6
         #- embed_rpf_3.6.9
-      hidden_dim: [128, 64]
-      signature: [rpf]
+      hidden_dim: 64
+      signature: [rpf, ns]
       num_epochs: 200
       batch_norm: false
-      batch_size: 32
+      batch_size: 256
   reddit5k:
     default: false
     variables:
       dataset:
         - REDDIT-MULTI-5K
       feature_name:
-        - freq_multi_rpf_1.2.3.4.5.6.7.8
-      hidden_dim: [128, 64]
-      dropout: [0.0, 0.2]
-      signature: [rpf]
+        - freq_multi_1.2.3.4
+        - freq_multi_1.2.3.4.5.6.7.8
+      hidden_dim: 64
+      dropout: 0.0
+      signature: ns
       learning_rate: 0.01
-      batch_size: 32
+      batch_size: 128
       num_epochs: 200
   reddit12k:
     default: false
@@ -113,10 +124,11 @@ env:
       dataset:
         - REDDIT-MULTI-12K
       feature_name:
-        - freq_multi_rpf_1.2.3.4.5.6.7.8
-      hidden_dim: [128, 64]
+        - freq_multi_1.2.3.4
+        - freq_multi_1.2.3.4.5.6.7.8
+      hidden_dim: [64]
       signature: [rpf]
-      batch_size: 64
+      batch_size: 128
       learning_rate: 0.01
       num_epochs: 200
   imdb:
@@ -124,21 +136,20 @@ env:
     variables:
       dataset:
         - IMDB-BINARY
-        #- IMDB-MULTI
+        - IMDB-MULTI
       feature_name:
-        - multi_rpf_1.2.3.4.5.6.7.8
-      hidden_dim: [64, 128]
-      signature: rpf
-      early_stop: 100
-      num_layers: 2
+        - multi_1.2.3.4
+      hidden_dim: 64
+      batch_size: 1024
+      signature: [rpf, ns]
   collab:
     default: false
     variables:
       dataset:
         - COLLAB
       feature_name:
-        #- multi_rpf_1.2.3.4.5.6.7.8
-        - multi_rpf_1.3.5.7.9.11.13.15
+        #- multi_1.2.3.4.5.6.7.8
+        - multi_1.3.5.7.9.11.13.15
       hidden_dim: 128
       dropout: 0.0
       signature: rpf
@@ -147,11 +158,11 @@ env:
       num_decoder_layers: 4
       batch_size: 1024
   cox2_dhfr:
-    default: falserpf
+    default: false
     variables:
       dataset: [COX2, DHFR]
       feature_name:
-        - multi_rpf_non_embed_1.2.3.4.5.6.7.8
+        - multi_1.2.3.4.5.6.7.8
       signature: [rpf, rpf_lbl]
       hidden_dim: 32
       num_epochs: 500
@@ -189,9 +200,6 @@ env:
       hidden_dim: 64
       dense_dim: 64
       signature: [rpf, rpf_lbl]
-    report:
-      type: raw
-      reduce: []
 model:
   name: src.models.set_transformer.MultiWeightedDeepSets
   hidden_dim: ~hidden_dim
@@ -200,11 +208,10 @@ model:
   dense_dim: ~hidden_dim
   dropout: ~dropout
   batch_norm: ~batch_norm
+  multi_encoder: true
 dataset:
   name: src.datasets.grakel.Grakel
   dataset_name: ~dataset
-  graph_kernel: bottleneck_distance
-  shuffle: true
   graph_features:
     persistence_diagram:
       type: persistence_diagram
@@ -212,12 +219,13 @@ dataset:
       filtration: vertex_weight
       signature: ~signature
       max_length: 10000
-  reuse: false
+      quantized_size: 100
+  reuse: true
   test_size: 0.1
 train:
   num_epochs: ~num_epochs
-  # early_stop:
-  #   num_epochs: 50
+  early_stop:
+    num_epochs: 50
   batch_size: ~batch_size
   optimizer:
     name: adam

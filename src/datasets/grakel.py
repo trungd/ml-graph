@@ -41,14 +41,17 @@ class Grakel(DatasetBuilder):
         y = dataset.target
 
         if self.configs.dataset_name in DATASETS_NO_NODE_LIST:
-            logger.info("Dataset size: %d", len(y))
-            logger.info("Average node count: %.2f",
-                        sum([len(set([v[0] for v in g[0]]) | set([v[1] for v in g[1]])) for g in G]) / len(G))
-            logger.info("Average edge count: %.2f", sum([len(g[0]) for g in G]) / len(G))
+            logger.info(" - ".join([
+                "No. graphs: %d" % len(y),
+                "Avg. no. nodes: %.2f" % (sum([len(set([v[0] for v in g[0]]) | set([v[1] for v in g[1]])) for g in G]) / len(G)),
+                "Avg. no. edges: %.2f" % (sum([len(g[0]) for g in G]) / len(G))
+            ]))
         else:
-            logger.info("Dataset size: %d", len(y))
-            logger.info("Average node count: %.2f", sum([len(g[1]) for g in G]) / len(G))
-            logger.info("Average edge count: %.2f", sum([len(g[0]) for g in G]) / len(G))
+            logger.info(" - ".join([
+                "No. graphs: %d" % len(y),
+                "Avg. no. nodes: %.2f" % (sum([len(g[1]) for g in G]) / len(G)),
+                "Avg. no. edges: %.2f" % (sum([len(g[0]) for g in G]) / len(G))
+            ]))
 
         return G, y
 
@@ -62,17 +65,17 @@ class Grakel(DatasetBuilder):
     @property
     def labels(self):
         filepath = os.path.join(self.get_processed_data_dir(), self.configs.dataset_name + "_labels.txt")
-        if not os.path.exists(filepath):
-            if self._labels is None:
-                self._graphs, self._labels = self.load_dataset()
-            logger.info(f"Writing labels from {filepath}...")
-            with open(filepath, "w") as f:
-                f.write("\n".join([str(s) for s in self._labels]))
-        else:
+        if self.configs.reuse and os.path.exists(filepath):
             if self._labels is None:
                 with open(filepath, "r") as f:
                     logger.info(f"Loading labels from {filepath}...")
                     self._labels = [int(x) for x in f.read().split('\n') if x != ""]
+        else:
+            if self._labels is None:
+                self._graphs, self._labels = self.load_dataset()
+            logger.info(f"Writing labels to {filepath}...")
+            with open(filepath, "w") as f:
+                f.write("\n".join([str(s) for s in self._labels]))
         return self._labels
 
     def get_working_dir(self):
@@ -131,7 +134,6 @@ class SklearnGrakelDataset(MultiGraphsDataset):
         if not self._num_node_labels:
             graphs = self.networkx_graphs
             node_labels = set.union(*[set(nx.get_node_attributes(g, "label").values()) for g in graphs])
-            logger.debug("Node labels: %s", str(node_labels))
             self._num_node_labels = len(node_labels)
         return self._num_node_labels
         
@@ -162,13 +164,8 @@ class PytorchGrakelDataset(Dataset):
                 cfg = self.params.dataset.graph_features.persistence_diagram
                 keys = cfg.keys if type(cfg.keys) == list else [cfg.key]
 
-                logger.info("Trimming persistence diagrams to maximum length of %d", cfg.max_length)
-                if cfg.max_length:
-                    for x in X:
-                        x.trim(cfg.max_length)
-
                 # weights = self.sklearn_dataset._get_vertex_weights(cfg.signature)
-                X = [{key: x.get(key) for key in keys} for x in X]
+                X = [{key: x.get(key, **cfg) for key in keys} for x in X]
 
                 if cfg.transformers:
                     for key in cfg.transformers:
@@ -203,7 +200,6 @@ class PytorchGrakelDataset(Dataset):
         #        X=maybe_cuda(ret[0].float()),
         #        Y=maybe_cuda(ret[1]))
         #else:
-
         ret = {}
         for feat_name in self.sklearn_dataset.graph_features:
             if feat_name == "persistence_diagram":
