@@ -111,6 +111,7 @@ class Grakel(DatasetBuilder):
     def sklearn_dataset(self):
         if not self._sklearn_dataset:
             self._sklearn_dataset = self.get_sklearn_wrapper()
+
         return self._sklearn_dataset
 
 
@@ -159,13 +160,17 @@ class PytorchGrakelDataset(Dataset):
         if isinstance(X, dict):
             X = [{key: X[key][i] for key in X} for i in range(len(y))]
 
+        logger.info("No. persistence diagrams: %d", sum(sum(len(p) for p in x.get('multi_1.2.3.4')) for x in X))
+        logger.info("No. reduced persistence diagrams: %d", sum(sum(len(p) for p in x.get('freq_multi_1.2.3.4', **self.params.dataset.graph_features.persistence_diagram.to_dict())) for x in X))
+
         for feat_name in self.sklearn_dataset.graph_features:
             if feat_name == "persistence_diagram":
                 cfg = self.params.dataset.graph_features.persistence_diagram
                 keys = cfg.keys if type(cfg.keys) == list else [cfg.key]
 
                 # weights = self.sklearn_dataset._get_vertex_weights(cfg.signature)
-                X = [{key: x.get(key, **cfg) for key in keys} for x in X]
+
+                X = [{key: x.get(key, **(cfg.to_dict())) for key in keys} for x in X]
 
                 if cfg.transformers:
                     for key in cfg.transformers:

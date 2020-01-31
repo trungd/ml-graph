@@ -7,6 +7,7 @@ from dlex import MainConfig
 from dlex.torch.models import ClassificationModel
 from dlex.torch.utils.model_utils import linear_layers
 from dlex.torch.utils.variable_length_tensor import get_mask
+from dlex.utils import logger
 from torch.nn.modules import TransformerEncoder, TransformerEncoderLayer
 from torch.nn.modules.activation import MultiheadAttention
 
@@ -181,9 +182,9 @@ class MultiDeepSetsTransformer(ClassificationModel):
         dim_input = 3 + 2
 
         self.enc = linear_layers(
-            [dim_input] + [cfg.hidden_dim] * (params.model.num_layers - 1) + [cfg.hidden_dim - 3],
+            [dim_input] + [cfg.hidden_dim] * (params.model.num_encoder_layers - 1) + [cfg.hidden_dim - 3],
             dropout=cfg.dropout,
-            batch_norm=cfg.batch_norm)
+            norm=nn.LayerNorm)
         self.emb_enc = nn.Linear(dim_input - 2, dim_input - 2)
         self.transformer_enc = Encoder(
             hidden_dim=cfg.encoder.dim_model,
@@ -192,9 +193,9 @@ class MultiDeepSetsTransformer(ClassificationModel):
             dropout=cfg.dropout,
             batch_norm=cfg.batch_norm)
         self.dec = linear_layers(
-            [cfg.hidden_dim] + [cfg.dense_dim] * (cfg.num_layers - 1) + [dataset.num_classes],
+            [cfg.hidden_dim] + [cfg.dense_dim] * (cfg.num_decoder_layers - 1) + [dataset.num_classes],
             dropout=cfg.dropout,
-            batch_norm=cfg.batch_norm)
+            norm=nn.BatchNorm1d if cfg.batch_norm else nn.LayerNorm)
         self.dropout = nn.Dropout(params.model.dropout)
 
     def forward(self, batch):
@@ -221,6 +222,11 @@ class MultiDeepSetsTransformer(ClassificationModel):
 
 
 class MultiWeightedDeepSets(ClassificationModel):
+    """
+    Config values:
+        - multi_encoder: use a separate encoder for each persistence diagram
+        - relu_before_pooling: apply relu before pooling to enforce positive element
+    """
     def __init__(self, params, dataset):
         super().__init__(params, dataset)
         cfg = self.configs
@@ -228,64 +234,122 @@ class MultiWeightedDeepSets(ClassificationModel):
         self.has_freq = self.feature_name[:5] == "freq_"
         self.has_pd_embedding = "_non_embed" not in self.feature_name
 
-        self.num_sets = len(self.feature_name.split('.'))
+        self.num_pds = len(self.feature_name.split('.'))
+        self.pd_dim = 1 if self.has_pd_embedding else 3
         dim_input = 3 + 2 if self.has_pd_embedding else 2
         dim_embed = 3 if self.has_pd_embedding else 0
 
-        self.enc = nn.ModuleList([linear_layers(
-            [dim_input] +
-            [cfg.hidden_dim] * (params.model.num_encoder_layers - 1) +
-            [(cfg.hidden_dim - dim_embed)],
-            norm=nn.BatchNorm1d if cfg.batch_norm else nn.LayerNorm,
-            dropout=cfg.dropout) for _ in range(self.num_sets if self.configs.multi_encoder else 1)])
+        encoder_dims = [int(n.strip()) for n in str(cfg.encoder_dim).split(',')]
+        shared_encoder_dims = [int(n.strip()) for n in str(cfg.shared_encoder_dim).split(',')]
+        decoder_dims = [int(n.strip()) for n in str(cfg.decoder_dim).split(',')]
 
-        # self.sum_enc = linear_layers([cfg.hidden_dim] * 3, batch_norm=False)
-        # self.emb_enc = nn.Linear(dim_input - 2, dim_input - 2)
+        if self.configs.multi_encoder:
+            self.enc = nn.ModuleList([linear_layers(
+                [dim_input] + encoder_dims,
+                norm=nn.LayerNorm,
+                dropout=cfg.dropout,
+                ignore_last_layer=False) for _ in range(self.num_pds * self.pd_dim if self.configs.multi_encoder else 1)])
 
-        self.W = torch.nn.Parameter(torch.rand(self.num_sets))
-        self.register_parameter(name='weight', param=self.W)
+            encoder_output_dim = encoder_dims[-1] + (dim_embed if self.configs.append_embedding_to_encoder_output else 0)
+        else:
+            encoder_output_dim = dim_input
+
+        self.shared_enc = linear_layers(
+            [encoder_output_dim] + shared_encoder_dims,
+            norm=nn.LayerNorm,
+            dropout=cfg.dropout)
+
+        if self.configs.combine_encoder == "concat":
+            encoder_output_dim = self.num_pds * encoder_output_dim
+        elif self.configs.combine_encoder == "weight_pooling_2d":
+            self.W = torch.nn.Parameter(torch.ones(self.num_pds, encoder_output_dim))
+            self.register_parameter(name='weight', param=self.W)
+        elif self.configs.combine_encoder == "weight_pooling":
+            self.W = torch.nn.Parameter(torch.ones(self.num_pds))
+            self.register_parameter(name='weight', param=self.W)
+        elif self.configs.combine_encoder == "attention":
+            self.attn = MultiheadAttention(
+                embed_dim=encoder_output_dim,
+                num_heads=cfg.attn_num_heads or 4,
+                dropout=cfg.dropout)
 
         if not self.has_pd_embedding:
             self.W2 = torch.nn.Parameter(torch.rand(3))
             self.register_parameter(name='weight2', param=self.W2)
 
         self.dec = linear_layers(
-            [cfg.hidden_dim] + [cfg.dense_dim] * (cfg.num_decoder_layers - 1) + [dataset.num_classes],
+            decoder_dims,
             norm=nn.BatchNorm1d,
             dropout=cfg.dropout)
 
     def forward(self, batch):
         X, X_len = batch.X
+        batch_size = len(X)
         if self.has_freq:
             X, freq = X[:, :, :, :-1], X[:, :, :, -1]
 
         if self.configs.multi_encoder:
-            X_enc = torch.stack([self.enc[i](X[:, i, :, :]) for i in range(self.num_sets)], dim=-3)
-        else:
-            if self.configs.batch_norm:
-                X_enc = self.enc(X.reshape([-1, X.shape[3]]))
-                X_enc = X_enc.reshape(list(X.shape[:-1]) + [-1])
+            X_enc = torch.stack([self.enc[i](X[:, i, :, :]) for i in range(self.num_pds * self.pd_dim)], dim=-3)
+            if self.configs.append_embedding_to_encoder_output:
+                X_emb = X[:, :, :, :-2]
+                X = torch.cat([X_emb, X_enc], -1)
             else:
-                X_enc = self.enc[0](X)
+                X = X_enc
 
-        X_emb = X[:, :, :, :-2]
-        X = torch.cat([X_emb, X_enc], -1)
+        X = self.shared_enc(X)
 
+        # pooling points in pd
         mask = torch.stack([get_mask(X_len[i], max_len=X.shape[-2]).float() for i in range(len(X))]).unsqueeze(-1)
         if self.has_freq:
             X = X * freq.unsqueeze(-1)
         X = X * mask
-        X = X.sum(-2)  # pooling points in pd
+        if self.configs.relu_before_pooling:
+            X = X.relu()
+        X = X.sum(-2)
 
-        if self.has_pd_embedding:
-            X = X * torch.softmax(self.W, -1).unsqueeze(0).repeat([len(X), 1]).unsqueeze(-1)
+        # combine encoder outputs
+        if self.configs.combine_encoder == "concat":
+            X = X.reshape([X.shape[0], -1])
+        elif self.configs.combine_encoder == "pooling":
             X = X.sum(-2)
-        else:
-            X = X.reshape(X.shape[0], 3, self.num_sets, X.shape[2])
-            X = X * torch.softmax(self.W, -1).unsqueeze(0).unsqueeze(0).repeat([len(X), 3, 1]).unsqueeze(-1)
+        elif self.configs.combine_encoder == "weight_pooling":
+            if self.has_pd_embedding:
+                weights = self.W
+
+                if self.configs.weight_activation == "softmax":
+                    weights = torch.softmax(self.W, -1)
+                elif self.configs.weight_activation == "relu":
+                    weights = torch.relu(self.W)
+
+                X = X * weights.unsqueeze(0).repeat([batch_size, 1]).unsqueeze(-1)
+
+                if self.configs.relu_before_pooling:
+                    X = X.relu()
+                # logger.debug(", ".join(["%.3f" % i for i in weights.tolist()]))
+                X = X.sum(-2)
+            else:
+                X = X.reshape(X.shape[0], 3, -1, X.shape[-1])
+                X = X * torch.softmax(self.W, -1).unsqueeze(0).unsqueeze(0).repeat([batch_size, 3, 1]).unsqueeze(-1)
+                X = X.sum(-2)
+                X = X * torch.softmax(self.W2, -1).unsqueeze(0).repeat([len(X), 1]).unsqueeze(-1)
+                X = X.sum(-2)
+        elif self.configs.combine_encoder == "weight_pooling_2d":
+            weights = self.W
+
+            if self.configs.weight_activation == "softmax":
+                weights = torch.softmax(self.W, -1)
+            elif self.configs.weight_activation == "relu":
+                weights = torch.relu(self.W)
+            X = X * weights.unsqueeze(0).repeat([len(X), 1, 1])
+            if self.configs.relu_before_pooling:
+                X = X.relu()
             X = X.sum(-2)
-            X = X * torch.softmax(self.W2, -1).unsqueeze(0).repeat([len(X), 1]).unsqueeze(-1)
+        elif self.configs.combine_encoder == "attention":
+            X = X.transpose(0, 1)
+            X, attn_weights = self.attn(X, X, X)
+            X = X.transpose(0, 1)
             X = X.sum(-2)
+
         X = self.dec(X)
         return X
 

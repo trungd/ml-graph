@@ -5,9 +5,10 @@ env:
     variables:
       batch_size: 256
       hidden_dim: 64
-      num_layers: 4
       attn_num_layers: 1
-      dropout: 0.2
+      num_encoder_layers: 4
+      num_decoder_layers: 4
+      dropout: 0.0
       learning_rate: 0.01
       num_heads: 4
       num_epochs: 200
@@ -56,9 +57,13 @@ env:
         #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15
         #- multi_1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16
       signature: [rpf, rpf_lbl]
-      attn_num_layers: 2
-      num_heads: 4
-      batch_size: 512
+      attn_num_layers: 1
+      num_encoder_layers: 2
+      num_decoder_layers: 2
+      num_heads: 2
+      batch_size: 256
+      num_epochs: 500
+      learning_rate: 0.001
   enzymes:
     default: false
     variables:
@@ -114,14 +119,14 @@ env:
     variables:
       dataset:
         - REDDIT-MULTI-5K
-        #- REDDIT-MULTI-12K
       feature_name:
         - freq_multi_1.2.3.4.5.6.7.8
-      hidden_dim: [64, 128]
+      hidden_dim: 64
       signature: [rpf]
-      batch_size: 32
-      learning_rate: 0.05
-      num_epochs: 250
+      batch_size: 64
+      learning_rate: 0.01
+      num_epochs: 200
+      dropout: 0.2
   imdb:
     default: false
     variables:
@@ -206,7 +211,8 @@ env:
 model:
   name: src.models.set_transformer.MultiDeepSetsTransformer
   hidden_dim: ~hidden_dim
-  num_layers: ~num_layers
+  num_encoder_layers: ~num_encoder_layers
+  num_decoder_layers: ~num_decoder_layers
   encoder:
     dim_model: ~hidden_dim
     num_heads: ~num_heads
@@ -224,7 +230,7 @@ dataset:
       key: ~feature_name
       filtration: vertex_weight
       signature: ~signature
-      reuse: true
+  reuse: true
   test_size: 0.1
 train:
   num_epochs: ~num_epochs

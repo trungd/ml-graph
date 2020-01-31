@@ -119,7 +119,7 @@ class MultiGraphsDataset(SklearnDataset):
     @property
     def feature_name(self):
         configs = self.params.dataset.graph_features.persistence_diagram
-        return "fil_%s_sig_%s_diagrams" % (
+        return "%s_sig_%s_diagrams" % (
             configs.filtration,
             configs.signature
         )
@@ -127,13 +127,13 @@ class MultiGraphsDataset(SklearnDataset):
     def _get_vertex_weights(self, signature):
         graphs = self.networkx_graphs
         # configs = self.params.dataset.graph_features.persistence_diagram
-        filepath = os.path.join(self.builder.get_processed_data_dir(), "vertex_weight_%s.pkl" % self.feature_name)
+        filepath = os.path.join(self.builder.get_processed_data_dir(), "vertex_weight_fil_%s.pkl" % self.feature_name)
         if self.configs.reuse and os.path.exists(filepath):
             with open(filepath, "rb") as f:
                 weights = pickle.load(f)
                 logger.info("Vertex weights loaded from %s" % filepath)
         else:
-            for graph in tqdm(graphs, desc="Extracting PDs"):
+            for graph in tqdm(graphs, desc="Calculating vertex weights"):
                 assign_vertex_weight(graph, signature, num_labels=self.num_node_labels)
             weights = [nx.get_node_attributes(graph, 'weight') for graph in graphs]
             with open(filepath, "wb") as f:
@@ -146,7 +146,7 @@ class MultiGraphsDataset(SklearnDataset):
             return self._persistence_diagrams
 
         configs = self.params.dataset.graph_features.persistence_diagram
-        pkl_filepath = os.path.join(self.builder.get_processed_data_dir(), "%s.pkl" % self.feature_name)
+        pkl_filepath = os.path.join(self.builder.get_processed_data_dir(), "fil_%s.pkl" % self.feature_name)
         filepath = os.path.join(self.builder.get_processed_data_dir(), "%s.json" % self.feature_name)
 
         dgms = None
@@ -173,9 +173,16 @@ class MultiGraphsDataset(SklearnDataset):
             weights = self._get_vertex_weights(configs.signature)
             for i in range(len(graphs)):
                 assign_vertex_weight(graphs[i], weights=weights[i])
-            if configs.filtration == "vertex_weight":
+            if configs.filtration in ["vertex_weight", "vertex_weight_super", "vertex_weight_sub_super"]:
                 for graph in tqdm(graphs, desc="Extracting PDs", leave=True):
-                    dgms.append(vertex_weight_persistence_diagrams(graph, tool='gudhi', use_clique=True))
+                    dgms.append(vertex_weight_persistence_diagrams(
+                        graph,
+                        tool='gudhi',
+                        use_clique=True,
+                        mode=dict(
+                            vertex_weight="sub",
+                            vertex_weight_super="super",
+                            vertex_weight_sub_super="both")[configs.filtration]))
             elif configs.filtration == "extended_vertex_weight":
                 for graph in tqdm(graphs, desc="Extracting PDs", leave=True):
                     dgms.append(extended_vertex_weight_persistence_diagrams(graph))

@@ -1,10 +1,11 @@
-from typing import Dict, Any, List
 import random
+from typing import Dict, Any, List
 
-from scipy.sparse import csgraph
-from scipy.linalg import eigh
 import networkx as nx
 import numpy as np
+from scipy.linalg import eigh
+from scipy.sparse import csgraph
+from sklearn.cluster import KMeans
 
 
 def vertex_degree_signatures(graph: nx.Graph) -> Dict[any, float]:
@@ -105,13 +106,25 @@ def assign_vertex_weight(graph: nx.Graph, func='degree', weights=None, **kwargs)
         ret = return_probability_signature(graph, kwargs.get('K', 20), normalize=func[:5] == 'norm_')
         for n in graph.nodes:
             graph.nodes[n]['weight'] = ret[n]
+    elif func == 'rpf_nn':
+        K = kwargs.get('K', 20)
+        ret = return_probability_signature(graph, K, normalize=func[:5] == 'norm_')
+        for k in range(K):
+            nodes = graph.nodes
+            ws = np.array([ret[n][k] for n in nodes]).reshape([-1, 1])
+            kmeans = KMeans(n_clusters=10, random_state=0).fit(ws)
+            ws = [kmeans.cluster_centers_[kmeans.labels_[i]] for i in range(len(ws))]
+            for i, n in enumerate(nodes):
+                ret[n][k] = ws[i]
+        for n in graph.nodes:
+            graph.nodes[n]['weight'] = ret[n]
     elif func == 'rpf_rank':
         K = kwargs.get('K', 20)
         ret = return_probability_signature(graph, K)
         for k in range(K):
             rank = sorted([(ret[n][k], n) for n in graph.nodes])
             for i, (_, n) in enumerate(rank):
-                ret[n][k] = i / graph.number_of_nodes()
+                ret[n][k] = i
         for n in graph.nodes:
             graph.nodes[n]['weight'] = ret[n]
     elif func == 'non-rpf':
