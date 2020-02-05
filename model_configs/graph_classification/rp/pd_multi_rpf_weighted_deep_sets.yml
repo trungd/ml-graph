@@ -25,6 +25,7 @@ env:
         - multi_1.2.3.4.5.6.7.8
       signature: [rpf]
       hidden_dim: 32
+      multi_encoder: true
       num_epochs: 200
       num_encoder_layers: 1
       num_decoder_layers: 1
@@ -172,19 +173,19 @@ env:
         - REDDIT-MULTI-5K
       feature_name:
         #- freq_multi_1
-        - freq_multi_1.2.3.4.5.6.7.8
+        - freq_multi_1.2.3.4
         #- freq_multi_1.2.3.4.5.6.7.8
         #- freq_multi_1.3.5.7
         #- freq_multi_1.3.5.7.9.11.13.15
-      # encoder_dim: 128
+      encoder_dim: 2
       shared_encoder_dim: 128, 128
       decoder_dim: 128, 128, 6
       dropout: 0.2
       signature: rpf
       learning_rate: 0.01
       num_epochs: 150
-      batch_size: 32
-      multi_encoder: false
+      batch_size: 128
+      multi_encoder: true
       combine_encoder: weight_pooling
       quantize_type: none
       append_embedding_to_encoder_output: true
@@ -610,5 +611,7 @@ train:
   cross_validation: 10
   select_model: last
   save_every: 1000e
+  show_report: true
+  show_progress: true
 test:
   metrics: [acc]

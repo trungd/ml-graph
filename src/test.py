@@ -10,11 +10,6 @@ from src.utils.utils import get_networkx_graph
 import matplotlib.pyplot as plt
 from matplotlib import collections as mc
 
-if False:
-    dataset = datasets.fetch_dataset("REDDIT-MULTI-5K", verbose=False)
-    G, y = dataset.data, dataset.target
-    G = [get_networkx_graph(g[1], g[0], g[2]) for g in G]
-
 
 def generate_graph(num_nodes, num_edges):
     g = nx.Graph()
@@ -26,8 +21,8 @@ def generate_graph(num_nodes, num_edges):
 
 
 # g = G[10]
-g = generate_graph(5, 10)
-print(return_probability_signature(g, 5))
+#g = generate_graph(5, 10)
+#print(return_probability_signature(g, 5))
 
 # assign_edge_weight(g, 'random')
 # assign_vertex_weight(g, 'random')
@@ -56,4 +51,10 @@ def visualize(g: nx.Graph):
     plt.savefig("test.png")
 
 
+dataset = datasets.fetch_dataset("NCI1", verbose=False)
+G, y = dataset.data, dataset.target
+G = [get_networkx_graph(g[1], g[0], g[2]) for g in G]
+g = random.choice(G)
+print(g.nodes, g.edges)
+# assign_vertex_weight(g, 'rpf')
 # visualize(g)

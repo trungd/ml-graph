@@ -1,13 +1,12 @@
 import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from dlex import MainConfig
 from dlex.torch.models import ClassificationModel
-from dlex.torch.utils.model_utils import linear_layers
+from dlex.torch.utils.model_utils import linear_layers, MultiLinear
 from dlex.torch.utils.variable_length_tensor import get_mask
-from dlex.utils import logger
 from torch.nn.modules import TransformerEncoder, TransformerEncoderLayer
 from torch.nn.modules.activation import MultiheadAttention
 
@@ -236,7 +235,7 @@ class MultiWeightedDeepSets(ClassificationModel):
 
         self.num_pds = len(self.feature_name.split('.'))
         self.pd_dim = 1 if self.has_pd_embedding else 3
-        dim_input = 3 + 2 if self.has_pd_embedding else 2
+        dim_input = 2
         dim_embed = 3 if self.has_pd_embedding else 0
 
         encoder_dims = [int(n.strip()) for n in str(cfg.encoder_dim).split(',')]
@@ -244,19 +243,20 @@ class MultiWeightedDeepSets(ClassificationModel):
         decoder_dims = [int(n.strip()) for n in str(cfg.decoder_dim).split(',')]
 
         if self.configs.multi_encoder:
-            self.enc = nn.ModuleList([linear_layers(
+            self.enc = nn.ModuleList([MultiLinear(
                 [dim_input] + encoder_dims,
-                norm=nn.LayerNorm,
-                dropout=cfg.dropout,
-                ignore_last_layer=False) for _ in range(self.num_pds * self.pd_dim if self.configs.multi_encoder else 1)])
-
+                embed_dim=dim_embed,
+                norm_layer=None,
+                last_layer_activation_fn='relu',
+                dropout=cfg.dropout) for _ in range(self.num_pds * self.pd_dim if self.configs.multi_encoder else 1)])
             encoder_output_dim = encoder_dims[-1] + (dim_embed if self.configs.append_embedding_to_encoder_output else 0)
         else:
             encoder_output_dim = dim_input
 
-        self.shared_enc = linear_layers(
+        self.shared_enc = MultiLinear(
             [encoder_output_dim] + shared_encoder_dims,
-            norm=nn.LayerNorm,
+            embed_dim=dim_embed,
+            norm_layer=None,
             dropout=cfg.dropout)
 
         if self.configs.combine_encoder == "concat":
@@ -277,9 +277,9 @@ class MultiWeightedDeepSets(ClassificationModel):
             self.W2 = torch.nn.Parameter(torch.rand(3))
             self.register_parameter(name='weight2', param=self.W2)
 
-        self.dec = linear_layers(
+        self.dec = MultiLinear(
             decoder_dims,
-            norm=nn.BatchNorm1d,
+            norm_layer=nn.BatchNorm1d,
             dropout=cfg.dropout)
 
     def forward(self, batch):
@@ -287,16 +287,22 @@ class MultiWeightedDeepSets(ClassificationModel):
         batch_size = len(X)
         if self.has_freq:
             X, freq = X[:, :, :, :-1], X[:, :, :, -1]
+        if self.configs.append_embedding_to_encoder_output:
+            X_emb = X[:, :, :, :-2]
+            X = X[:, :, :, -2:]
+        else:
+            X_emb = None
 
         if self.configs.multi_encoder:
-            X_enc = torch.stack([self.enc[i](X[:, i, :, :]) for i in range(self.num_pds * self.pd_dim)], dim=-3)
+            X = torch.stack([self.enc[i](X[:, i, :, :], X_emb[:, i, :, :]) for i in range(self.num_pds * self.pd_dim)], dim=-3)
+            # for i, module in enumerate(self.enc):
+            #     logger.debug("%d: %s", i, str(module[0].weight.cpu().detach().numpy().tolist()))
             if self.configs.append_embedding_to_encoder_output:
-                X_emb = X[:, :, :, :-2]
-                X = torch.cat([X_emb, X_enc], -1)
-            else:
-                X = X_enc
+                X = torch.cat([X, X_emb], -1)
+            # else:
+            #     X = X_enc
 
-        X = self.shared_enc(X)
+        X = self.shared_enc(X, X_emb)
 
         # pooling points in pd
         mask = torch.stack([get_mask(X_len[i], max_len=X.shape[-2]).float() for i in range(len(X))]).unsqueeze(-1)
