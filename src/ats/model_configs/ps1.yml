@@ -1,0 +1,13 @@
+backend: sklearn
+dataset:
+  name: src.datasets.ais.AIS
+  problem_set: 1
+  features:
+model:
+  name: src.model.Model
+train:
+  num_epochs: 10
+  optimizer:
+    name: sgd
+test:
+  metrics: [acc]
