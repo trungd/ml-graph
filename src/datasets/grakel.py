@@ -154,14 +154,14 @@ class PytorchGrakelDataset(Dataset):
     def __init__(self, builder, mode: str):
         super().__init__(builder, mode)
         self.sklearn_dataset = builder.sklearn_dataset
-        X = self.sklearn_dataset.X_train if mode == "train" else self.sklearn_dataset.X_test
-        y = self.sklearn_dataset.y_train if mode == "train" else self.sklearn_dataset.y_test
+        X = getattr(self.sklearn_dataset, f"X_{mode}")
+        y = getattr(self.sklearn_dataset, f"y_{mode}")
 
         if isinstance(X, dict):
             X = [{key: X[key][i] for key in X} for i in range(len(y))]
 
-        logger.info("No. persistence diagrams: %d", sum(sum(len(p) for p in x.get('multi_1.2.3.4')) for x in X))
-        logger.info("No. reduced persistence diagrams: %d", sum(sum(len(p) for p in x.get('freq_multi_1.2.3.4', **self.params.dataset.graph_features.persistence_diagram.to_dict())) for x in X))
+        # logger.info("No. persistence diagrams: %d", sum(sum(len(p) for p in x.get('multi_1.2.3.4')) for x in X))
+        # logger.info("No. reduced persistence diagrams: %d", sum(sum(len(p) for p in x.get('freq_multi_1.2.3.4', **self.params.dataset.graph_features.persistence_diagram.to_dict())) for x in X))
 
         for feat_name in self.sklearn_dataset.graph_features:
             if feat_name == "persistence_diagram":
@@ -213,15 +213,19 @@ class PytorchGrakelDataset(Dataset):
                 X = {key: [b[0][key] for b in batch] for key in keys}
                 for key in keys:
                     if key == "persistence_image":
-                        X[key] = maybe_cuda(torch.FloatTensor(X[key]))
+                        X[key] = torch.FloatTensor(X[key])
                     else:
                         X[key] = pad_sequence(X[key], 0., output_tensor=True, dim=3)
 
                 if len(X) == 1:
                     X = X[list(X.keys())[0]]
-                ret[feat_name] = Batch(X=X, Y=maybe_cuda(torch.LongTensor([b[1] for b in batch])))
+                ret[feat_name] = Batch(X=X, Y=torch.LongTensor([b[1] for b in batch]))
             else:
                 raise ValueError
 
         if len(ret) == 1:
             return ret[list(ret.keys())[0]]
+
+    def format_output(self, y_pred, batch_input) -> (str, str, str):
+        return "", str(y_pred), str(batch_input.Y)
+

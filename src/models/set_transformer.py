@@ -3,7 +3,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from dlex import MainConfig
+from dlex import Params
 from dlex.torch.models import ClassificationModel
 from dlex.torch.utils.model_utils import linear_layers, MultiLinear
 from dlex.torch.utils.variable_length_tensor import get_mask
@@ -150,7 +150,7 @@ class MultiDeepSets(ClassificationModel):
         self.dropout = nn.Dropout(params.model.dropout)
 
     def forward(self, batch):
-        X, X_len = batch.X
+        X, X_len = self.to_cuda_tensors(batch.X)
         if self.has_freq:
             X, freq = X[:, :, :, :-1], X[:, :, :, -1]
 
@@ -239,8 +239,14 @@ class MultiWeightedDeepSets(ClassificationModel):
         dim_embed = 3 if self.has_pd_embedding else 0
 
         encoder_dims = [int(n.strip()) for n in str(cfg.encoder_dim).split(',')]
-        shared_encoder_dims = [int(n.strip()) for n in str(cfg.shared_encoder_dim).split(',')]
+        if cfg.shared_encoder_dim:
+            shared_encoder_dims = [int(n.strip()) for n in str(cfg.shared_encoder_dim).split(',')]
+        else:
+            shared_encoder_dims = []
         decoder_dims = [int(n.strip()) for n in str(cfg.decoder_dim).split(',')]
+
+        if self.configs.append_embedding_to_encoder_output:
+            decoder_dims[0] += dim_embed
 
         if self.configs.multi_encoder:
             self.enc = nn.ModuleList([MultiLinear(
@@ -253,11 +259,14 @@ class MultiWeightedDeepSets(ClassificationModel):
         else:
             encoder_output_dim = dim_input
 
-        self.shared_enc = MultiLinear(
-            [encoder_output_dim] + shared_encoder_dims,
-            embed_dim=dim_embed,
-            norm_layer=None,
-            dropout=cfg.dropout)
+        if shared_encoder_dims:
+            self.shared_enc = MultiLinear(
+                [encoder_output_dim] + shared_encoder_dims,
+                embed_dim=dim_embed,
+                norm_layer=None,
+                dropout=cfg.dropout)
+        else:
+            self.shared_enc = nn.Sequential()
 
         if self.configs.combine_encoder == "concat":
             encoder_output_dim = self.num_pds * encoder_output_dim
@@ -283,7 +292,7 @@ class MultiWeightedDeepSets(ClassificationModel):
             dropout=cfg.dropout)
 
     def forward(self, batch):
-        X, X_len = batch.X
+        X, X_len = self.to_cuda_tensors(batch.X)
         batch_size = len(X)
         if self.has_freq:
             X, freq = X[:, :, :, :-1], X[:, :, :, -1]
@@ -302,7 +311,7 @@ class MultiWeightedDeepSets(ClassificationModel):
             # else:
             #     X = X_enc
 
-        X = self.shared_enc(X, X_emb)
+        # X = self.shared_enc(X, X_emb)
 
         # pooling points in pd
         mask = torch.stack([get_mask(X_len[i], max_len=X.shape[-2]).float() for i in range(len(X))]).unsqueeze(-1)
@@ -414,7 +423,7 @@ class Encoder(nn.Module):
 
 
 class SetTransformer(ClassificationModel):
-    def __init__(self, params: MainConfig, dataset):
+    def __init__(self, params: Params, dataset):
         super(SetTransformer, self).__init__(params, dataset)
         cfg = self.configs
 

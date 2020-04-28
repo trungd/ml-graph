@@ -179,10 +179,30 @@ class MultiGraphsDataset(SklearnDataset):
                         graph,
                         tool='gudhi',
                         use_clique=True,
-                        mode=dict(
+                        direction=dict(
                             vertex_weight="sub",
                             vertex_weight_super="super",
                             vertex_weight_sub_super="both")[configs.filtration]))
+            if configs.filtration == "vertex_weight_norm":
+                for graph in tqdm(graphs, desc="Extracting PDs", leave=True):
+                    nodes = list(graph.nodes)
+                    vertex_features = nx.get_node_attributes(graph, "weight")
+                    vertex_weights = [np.linalg.norm(vertex_features[n]) for n in nodes]
+                    sorted_nodes = np.argsort(vertex_weights)
+                    for node, order in zip(nodes, sorted_nodes):
+                        graph.nodes[node]['weight'] = order
+
+                    dgm = vertex_weight_persistence_diagrams(
+                        graph,
+                        tool='gudhi',
+                        use_clique=True).to_dict()
+                    inf_val = [1] * len(vertex_features[nodes[0]])
+                    for key in dgm:
+                        dgm[key] = [
+                            (vertex_features[nodes[int(b)]], vertex_features[nodes[int(d)]]) if d != float('inf') \
+                            else (vertex_features[nodes[int(b)]], inf_val)
+                            for b, d in dgm[key]]
+                    dgms.append(PersistenceDiagrams.from_dict(dgm))
             elif configs.filtration == "extended_vertex_weight":
                 for graph in tqdm(graphs, desc="Extracting PDs", leave=True):
                     dgms.append(extended_vertex_weight_persistence_diagrams(graph))
@@ -199,9 +219,9 @@ class MultiGraphsDataset(SklearnDataset):
             np.max([np.max([len(d) for d in ds.diagrams]) for ds in dgms])
         ))
 
-        for d in dgms:
-            d.normalize()
-            d.threshold()
+        # for d in dgms:
+        #     d.normalize()
+        #     d.threshold()
 
         # for key in ['h0', 'h1', 'h0_non_essential', 'h0_essential', 'h1_essential']:
         #     logger.debug("Sample of persistence diagrams (%s): %s", key, str(dgms[0][key]))
@@ -303,6 +323,8 @@ class MultiGraphsDataset(SklearnDataset):
             self.X = self.graph_features[key]
             self.X_train = [self.X[i] for i in self.X_train]
             self.X_test = [self.X[i] for i in self.X_test]
+            if self.X_valid:
+                self.X_valid = [self.X[i] for i in self.X_valid]
         logger.info("Extracting features done.")
 
     @property

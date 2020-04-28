@@ -1,5 +1,5 @@
 backend: pytorch
-random_seed: 1
+random_seed: 123
 env:
   default:
     variables:
@@ -11,7 +11,6 @@ env:
       decoder_dim: 64
       combine_encoder: pooling
       num_epochs: 500
-      batch_norm: false
       multi_encoder: false
       quantize_type: none
       quantize_size: 100
@@ -22,11 +21,12 @@ env:
     variables:
       dataset: MUTAG
       feature_name:
+        - multi_1.2.3.4
         - multi_1.2.3.4.5.6.7.8
       signature: [rpf]
-      hidden_dim: 32
+      hidden_dim: [16, 32]
       multi_encoder: true
-      num_epochs: 200
+      num_epochs: 20
       num_encoder_layers: 1
       num_decoder_layers: 1
   mutag_attn:
@@ -174,21 +174,27 @@ env:
       feature_name:
         #- freq_multi_1
         - freq_multi_1.2.3.4
-        #- freq_multi_1.2.3.4.5.6.7.8
+        - freq_multi_1.2.3.4.5.6.7.8
         #- freq_multi_1.3.5.7
         #- freq_multi_1.3.5.7.9.11.13.15
-      encoder_dim: 2
-      shared_encoder_dim: 128, 128
-      decoder_dim: 128, 128, 6
-      dropout: 0.2
+      encoder_dim:
+        - 64, 64
+        - 64, 64, 64
+        #- 64
+      shared_encoder_dim:
+      decoder_dim: 64, 64, 6
+      dropout:
+        - 0.0
+        - 0.05
       signature: rpf
       learning_rate: 0.01
-      num_epochs: 150
-      batch_size: 128
+      num_epochs: 120
+      batch_size: 64
       multi_encoder: true
       combine_encoder: weight_pooling
       quantize_type: none
       append_embedding_to_encoder_output: true
+      # batch_norm: true
   reddit5k_1:
     default: false
     variables:
@@ -574,7 +580,7 @@ model:
   decoder_dim: ~decoder_dim
   dense_dim: ~hidden_dim
   dropout: ~dropout
-  batch_norm: ~batch_norm
+  batch_norm: false
   multi_encoder: ~multi_encoder
   combine_encoder: ~combine_encoder
   relu_before_pooling: false
@@ -582,7 +588,9 @@ model:
   append_embedding_to_encoder_output: ~append_embedding_to_encoder_output
 dataset:
   name: src.datasets.grakel.Grakel
+  valid_set_ratio: 0.1
   dataset_name: ~dataset
+  shuffle: true
   graph_features:
     persistence_diagram:
       type: persistence_diagram
@@ -595,7 +603,9 @@ dataset:
         size: ~quantize_size
   reuse: true
   test_size: 0.1
+  output_format: none
 train:
+  valid_set: valid
   num_epochs: ~num_epochs
   # early_stop:
   #   num_epochs: 50
@@ -606,12 +616,14 @@ train:
   lr_scheduler:
     # milestones: [15, 30, 45, 60]
     # milestones: [25, 50, 75, 100, 125, 150]
-    milestones: [25, 50, 75, 100, 125]
+    milestones: [20, 40, 60, 80]
     gamma: 0.2
   cross_validation: 10
-  select_model: last
-  save_every: 1000e
+  select_model: best
+  save_every: 1000e  # never save
+  log_every:
   show_report: true
   show_progress: true
 test:
+  test_sets: [test]
   metrics: [acc]

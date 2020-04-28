@@ -12,7 +12,6 @@ dataset:
 train:
   batch_size: 128
   num_epochs: 10
-  eval: []
   optimizer:
     name: torch.optim.RMSprop
     lr: 0.025
